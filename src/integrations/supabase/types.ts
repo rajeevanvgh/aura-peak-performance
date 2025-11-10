@@ -53,13 +53,6 @@ export type Database = {
             referencedRelation: "goals"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "activities_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
         ]
       }
       goals: {
@@ -102,20 +95,13 @@ export type Database = {
           unit?: string
           user_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "goals_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       profiles: {
         Row: {
           age: number | null
           created_at: string | null
+          email: string | null
           fitness_level: string | null
           gender: string | null
           id: string
@@ -125,6 +111,7 @@ export type Database = {
         Insert: {
           age?: number | null
           created_at?: string | null
+          email?: string | null
           fitness_level?: string | null
           gender?: string | null
           id: string
@@ -134,41 +121,12 @@ export type Database = {
         Update: {
           age?: number | null
           created_at?: string | null
+          email?: string | null
           fitness_level?: string | null
           gender?: string | null
           id?: string
           name?: string | null
           updated_at?: string | null
-        }
-        Relationships: []
-      }
-      users: {
-        Row: {
-          age: number | null
-          created_at: string | null
-          email: string
-          fitness_level: string | null
-          gender: string | null
-          id: string
-          name: string | null
-        }
-        Insert: {
-          age?: number | null
-          created_at?: string | null
-          email: string
-          fitness_level?: string | null
-          gender?: string | null
-          id?: string
-          name?: string | null
-        }
-        Update: {
-          age?: number | null
-          created_at?: string | null
-          email?: string
-          fitness_level?: string | null
-          gender?: string | null
-          id?: string
-          name?: string | null
         }
         Relationships: []
       }

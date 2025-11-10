@@ -103,9 +103,9 @@ export default function Index() {
 
   const loadUserData = async (userId: string) => {
     try {
-      // Load user from users table
+      // Load user from profiles table
       const { data: userData } = await supabase
-        .from('users')
+        .from('profiles')
         .select('*')
         .eq('id', userId)
         .maybeSingle();
@@ -306,33 +306,11 @@ export default function Index() {
             return;
           }
           
-          if (data.user) {
-            // Create user record in users table
-            const { error: userError } = await supabase
-              .from('users')
-              .insert({
-                id: data.user.id,
-                email: signUpData.email,
-                name: signUpData.name,
-                age: signUpData.age,
-                gender: signUpData.gender,
-                fitness_level: signUpData.fitnessLevel
-              });
-            
-            if (userError) {
-              toast({
-                variant: 'destructive',
-                title: 'Error',
-                description: 'Failed to create user profile'
-              });
-              return;
-            }
-            
-            toast({
-              title: 'Success',
-              description: 'Account created successfully!'
-            });
-          }
+          // Profile is automatically created by database trigger
+          toast({
+            title: 'Success',
+            description: 'Account created successfully!'
+          });
         }
       } catch (error: any) {
         if (error.errors) {
