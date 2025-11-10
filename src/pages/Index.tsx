@@ -1,14 +1,742 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { useState, useEffect } from 'react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { 
+  Calendar, Trophy, TrendingUp, Target, Plus, X, Edit2, Trash2, 
+  LogIn, UserPlus, User, Activity, Award, Clock, Zap 
+} from 'lucide-react';
+import { GlassCard } from '@/components/ui/glass-card';
+import { Button } from '@/components/ui/button';
+import { ProgressRing } from '@/components/ProgressRing';
+import { ProgressBar } from '@/components/ProgressBar';
+import { Badge } from '@/components/ui/badge';
 
-const Index = () => {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="mb-4 text-4xl font-bold">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
+// Types
+interface User {
+  name: string;
+  email: string;
+}
+
+interface Goal {
+  id: string;
+  userId: string;
+  type: string;
+  title: string;
+  targetValue: number;
+  currentValue: number;
+  unit: string;
+  startDate: string;
+  endDate: string;
+  status: 'active' | 'completed' | 'paused';
+  createdAt: string;
+}
+
+interface ActivityLog {
+  id: string;
+  goalId: string;
+  userId: string;
+  date: string;
+  value: number;
+  notes?: string;
+}
+
+// Utility functions
+const formatDate = (date: string) => {
+  return new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+};
+
+const calculateProgress = (current: number, target: number) => {
+  return Math.min(Math.round((current / target) * 100), 100);
+};
+
+const getDaysRemaining = (endDate: string) => {
+  const diff = new Date(endDate).getTime() - new Date().getTime();
+  return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+};
+
+export default function Index() {
+  const [currentView, setCurrentView] = useState('landing');
+  const [user, setUser] = useState<User | null>(null);
+  const [goals, setGoals] = useState<Goal[]>([]);
+  const [activities, setActivities] = useState<ActivityLog[]>([]);
+  const [showModal, setShowModal] = useState<string | null>(null);
+  const [selectedGoal, setSelectedGoal] = useState<Goal | null>(null);
+
+  // Demo data for first time users
+  useEffect(() => {
+    const initDemoData = () => {
+      if (goals.length === 0 && user) {
+        const demoGoals: Goal[] = [
+          {
+            id: '1',
+            userId: user.email,
+            type: 'Distance',
+            title: 'Run 50km this month',
+            targetValue: 50,
+            currentValue: 32,
+            unit: 'km',
+            startDate: new Date(new Date().setDate(1)).toISOString(),
+            endDate: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString(),
+            status: 'active',
+            createdAt: new Date().toISOString()
+          },
+          {
+            id: '2',
+            userId: user.email,
+            type: 'Frequency',
+            title: 'Workout 15 times',
+            targetValue: 15,
+            currentValue: 9,
+            unit: 'sessions',
+            startDate: new Date(new Date().setDate(1)).toISOString(),
+            endDate: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString(),
+            status: 'active',
+            createdAt: new Date().toISOString()
+          }
+        ];
+        setGoals(demoGoals);
+      }
+    };
+    
+    if (user && goals.length === 0) {
+      initDemoData();
+    }
+  }, [user]);
+
+  // Components
+  const LandingPage = () => (
+    <div className="min-h-screen bg-deep-charcoal">
+      <nav className="fixed top-0 w-full bg-deep-charcoal/80 backdrop-blur-lg border-b border-white/10 z-40">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+          <div className="text-3xl font-heading font-bold text-auro-gold">AuraQ</div>
+          <div className="flex gap-3">
+            <Button 
+              variant="ghost" 
+              onClick={() => setCurrentView('login')}
+              className="gap-2"
+            >
+              <LogIn size={20} />
+              Sign In
+            </Button>
+            <Button 
+              onClick={() => setCurrentView('signup')}
+              className="gap-2 bg-auro-gold text-deep-charcoal hover:bg-auro-gold/90"
+            >
+              <UserPlus size={20} />
+              Get Started
+            </Button>
+          </div>
+        </div>
+      </nav>
+      
+      <div className="pt-32 pb-20 px-4">
+        <div className="max-w-4xl mx-auto text-center">
+          <h1 className="text-6xl md:text-7xl font-heading font-bold text-foreground mb-6 leading-tight">
+            Activate Your <span className="text-auro-gold">Potential</span>
+          </h1>
+          <p className="text-xl text-soft-graphite mb-12 max-w-2xl mx-auto">
+            Where Energy Meets Precision. Train Smart. Shine Strong.
+          </p>
+          <Button 
+            onClick={() => setCurrentView('signup')}
+            className="text-lg px-8 py-6 gap-2 bg-auro-gold text-deep-charcoal hover:bg-auro-gold/90 hover:scale-105"
+          >
+            <Zap size={24} />
+            Start Your Journey
+          </Button>
+        </div>
+        
+        <div className="max-w-6xl mx-auto mt-20 grid md:grid-cols-3 gap-6">
+          <GlassCard hover className="text-center">
+            <Target className="mx-auto mb-4 text-auro-gold" size={48} />
+            <h3 className="text-xl font-heading font-bold text-foreground mb-2">Smart Goals</h3>
+            <p className="text-soft-graphite">Set personalized fitness targets and track your progress in real-time</p>
+          </GlassCard>
+          <GlassCard hover className="text-center">
+            <Activity className="mx-auto mb-4 text-electric-blue" size={48} />
+            <h3 className="text-xl font-heading font-bold text-foreground mb-2">Live Analytics</h3>
+            <p className="text-soft-graphite">Visualize your performance with beautiful, insightful charts</p>
+          </GlassCard>
+          <GlassCard hover className="text-center">
+            <Award className="mx-auto mb-4 text-auro-gold" size={48} />
+            <h3 className="text-xl font-heading font-bold text-foreground mb-2">Achievements</h3>
+            <p className="text-soft-graphite">Celebrate milestones and build momentum with streak tracking</p>
+          </GlassCard>
+        </div>
       </div>
     </div>
   );
-};
 
-export default Index;
+  const AuthForm = ({ type }: { type: 'login' | 'signup' }) => {
+    const [formData, setFormData] = useState({ email: '', password: '', name: '' });
+    
+    const handleSubmit = (e: React.FormEvent) => {
+      e.preventDefault();
+      setUser({ 
+        name: formData.name || 'Fitness Pro', 
+        email: formData.email || 'user@auraq.com' 
+      });
+      setCurrentView('dashboard');
+    };
+
+    return (
+      <div className="min-h-screen bg-deep-charcoal flex items-center justify-center p-4">
+        <GlassCard className="max-w-md w-full">
+          <div className="text-center mb-8">
+            <div className="text-4xl font-heading font-bold text-auro-gold mb-2">AuraQ</div>
+            <p className="text-soft-graphite">{type === 'login' ? 'Welcome back' : 'Start your journey'}</p>
+          </div>
+          
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <input 
+              type="email" 
+              placeholder="Email" 
+              value={formData.email}
+              onChange={(e) => setFormData({...formData, email: e.target.value})}
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-foreground placeholder-soft-graphite focus:outline-none focus:border-electric-blue transition-colors" 
+            />
+            <input 
+              type="password" 
+              placeholder="Password" 
+              value={formData.password}
+              onChange={(e) => setFormData({...formData, password: e.target.value})}
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-foreground placeholder-soft-graphite focus:outline-none focus:border-electric-blue transition-colors" 
+            />
+            
+            {type === 'signup' && (
+              <input 
+                type="text" 
+                placeholder="Name" 
+                value={formData.name}
+                onChange={(e) => setFormData({...formData, name: e.target.value})}
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-foreground placeholder-soft-graphite focus:outline-none focus:border-electric-blue transition-colors" 
+              />
+            )}
+            
+            <Button 
+              type="submit"
+              className="w-full justify-center bg-auro-gold text-deep-charcoal hover:bg-auro-gold/90"
+            >
+              {type === 'login' ? 'Sign In' : 'Create Account'}
+            </Button>
+            
+            <button 
+              type="button"
+              onClick={() => setCurrentView(type === 'login' ? 'signup' : 'login')} 
+              className="w-full text-sm text-soft-graphite hover:text-foreground transition-colors"
+            >
+              {type === 'login' ? "Don't have an account? Sign up" : 'Already have an account? Sign in'}
+            </button>
+          </form>
+        </GlassCard>
+      </div>
+    );
+  };
+
+  const StatCard = ({ icon: Icon, label, value, trend }: { 
+    icon: any; 
+    label: string; 
+    value: string | number; 
+    trend?: string 
+  }) => (
+    <GlassCard hover>
+      <div className="flex items-start justify-between">
+        <div className="flex-1">
+          <div className="flex items-center gap-2 text-soft-graphite text-sm mb-2">
+            <Icon size={18} />
+            <span className="font-body">{label}</span>
+          </div>
+          <div className="text-3xl font-stats font-bold text-foreground mb-1">{value}</div>
+          {trend && (
+            <div className="flex items-center gap-1 text-electric-blue text-sm">
+              <TrendingUp size={14} />
+              <span>{trend}</span>
+            </div>
+          )}
+        </div>
+      </div>
+    </GlassCard>
+  );
+
+  const Dashboard = () => {
+    const activeGoals = goals.filter(g => g.status === 'active').length;
+    const completedThisWeek = activities.filter(a => {
+      const actDate = new Date(a.date);
+      const weekAgo = new Date();
+      weekAgo.setDate(weekAgo.getDate() - 7);
+      return actDate >= weekAgo;
+    }).length;
+    
+    const weeklyData = Array.from({length: 7}, (_, i) => {
+      const date = new Date();
+      date.setDate(date.getDate() - (6 - i));
+      const dayActivities = activities.filter(a => 
+        new Date(a.date).toDateString() === date.toDateString()
+      );
+      return {
+        day: date.toLocaleDateString('en-US', { weekday: 'short' }),
+        value: dayActivities.reduce((sum, a) => sum + (a.value || 0), 0)
+      };
+    });
+
+    return (
+      <div className="space-y-8">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <h1 className="text-4xl font-heading font-bold text-foreground mb-2">
+              Welcome back, {user?.name}!
+            </h1>
+            <p className="text-soft-graphite">Train Smart. Shine Strong.</p>
+          </div>
+          <Button 
+            onClick={() => setShowModal('newGoal')}
+            className="gap-2 bg-auro-gold text-deep-charcoal hover:bg-auro-gold/90"
+          >
+            <Plus size={20} />
+            New Goal
+          </Button>
+        </div>
+
+        <div className="grid md:grid-cols-3 gap-6">
+          <StatCard icon={Target} label="Active Goals" value={activeGoals} trend="+2 this month" />
+          <StatCard icon={Activity} label="Weekly Activities" value={completedThisWeek} trend="+15% from last week" />
+          <StatCard icon={Trophy} label="Current Streak" value="12 days" trend="Personal best!" />
+        </div>
+
+        <GlassCard>
+          <h2 className="text-2xl font-heading font-bold text-foreground mb-6">Weekly Progress</h2>
+          <ResponsiveContainer width="100%" height={250}>
+            <LineChart data={weeklyData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+              <XAxis dataKey="day" stroke="hsl(var(--soft-graphite))" />
+              <YAxis stroke="hsl(var(--soft-graphite))" />
+              <Tooltip 
+                contentStyle={{ 
+                  backgroundColor: 'hsl(var(--deep-charcoal))', 
+                  border: '1px solid rgba(255,255,255,0.1)', 
+                  borderRadius: '12px',
+                  color: 'hsl(var(--foreground))'
+                }} 
+              />
+              <Line 
+                type="monotone" 
+                dataKey="value" 
+                stroke="hsl(var(--auro-gold))" 
+                strokeWidth={3} 
+                dot={{ fill: 'hsl(var(--auro-gold))', r: 6 }} 
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </GlassCard>
+
+        <div>
+          <h2 className="text-2xl font-heading font-bold text-foreground mb-6">Your Goals</h2>
+          {goals.length === 0 ? (
+            <GlassCard className="text-center py-12">
+              <Target className="mx-auto mb-4 text-soft-graphite" size={48} />
+              <p className="text-soft-graphite mb-4">No goals yet. Create your first goal to get started!</p>
+              <Button 
+                onClick={() => setShowModal('newGoal')}
+                className="bg-auro-gold text-deep-charcoal hover:bg-auro-gold/90"
+              >
+                Create Goal
+              </Button>
+            </GlassCard>
+          ) : (
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {goals.map(goal => {
+                const progress = calculateProgress(goal.currentValue, goal.targetValue);
+                return (
+                  <GlassCard 
+                    key={goal.id} 
+                    hover 
+                    className="cursor-pointer" 
+                    onClick={() => {
+                      setSelectedGoal(goal);
+                      setShowModal('goalDetail');
+                    }}
+                  >
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex-1">
+                        <h3 className="text-xl font-heading font-bold text-foreground mb-2">{goal.title}</h3>
+                        <Badge variant="secondary" className="bg-electric-blue/20 text-electric-blue border-electric-blue/30">
+                          {goal.type}
+                        </Badge>
+                      </div>
+                      <ProgressRing progress={progress} size={80} />
+                    </div>
+                    <div className="space-y-3">
+                      <div>
+                        <div className="flex justify-between text-sm text-soft-graphite mb-1">
+                          <span>{goal.currentValue} / {goal.targetValue} {goal.unit}</span>
+                          <span>{progress}%</span>
+                        </div>
+                        <ProgressBar progress={progress} />
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-soft-graphite flex items-center gap-1">
+                          <Clock size={14} />
+                          {getDaysRemaining(goal.endDate)} days left
+                        </span>
+                        <Badge 
+                          variant={goal.status === 'active' ? 'default' : 'secondary'}
+                          className={goal.status === 'active' ? 'bg-auro-gold/20 text-auro-gold border-auro-gold/30' : ''}
+                        >
+                          {goal.status}
+                        </Badge>
+                      </div>
+                    </div>
+                  </GlassCard>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const Modal = ({ isOpen, onClose, title, children }: {
+    isOpen: boolean;
+    onClose: () => void;
+    title: string;
+    children: React.ReactNode;
+  }) => {
+    if (!isOpen) return null;
+    
+    return (
+      <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <GlassCard className="max-w-lg w-full max-h-[90vh] overflow-y-auto">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-heading font-bold text-foreground">{title}</h2>
+            <button onClick={onClose} className="text-foreground/60 hover:text-foreground transition-colors">
+              <X size={24} />
+            </button>
+          </div>
+          {children}
+        </GlassCard>
+      </div>
+    );
+  };
+
+  const CreateGoalModal = () => {
+    const [goalData, setGoalData] = useState({
+      type: 'Distance',
+      title: '',
+      targetValue: '',
+      unit: 'km',
+      startDate: new Date().toISOString().split('T')[0],
+      endDate: ''
+    });
+
+    const handleSubmit = () => {
+      if (!goalData.title || !goalData.targetValue || !goalData.endDate) return;
+      
+      const newGoal: Goal = {
+        id: Date.now().toString(),
+        userId: user!.email,
+        type: goalData.type,
+        title: goalData.title,
+        targetValue: parseFloat(goalData.targetValue),
+        currentValue: 0,
+        unit: goalData.unit,
+        startDate: goalData.startDate,
+        endDate: goalData.endDate,
+        status: 'active',
+        createdAt: new Date().toISOString()
+      };
+      setGoals([...goals, newGoal]);
+      setShowModal(null);
+    };
+
+    return (
+      <Modal isOpen={showModal === 'newGoal'} onClose={() => setShowModal(null)} title="Create New Goal">
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm text-soft-graphite mb-2">Goal Type</label>
+            <select 
+              value={goalData.type} 
+              onChange={(e) => setGoalData({...goalData, type: e.target.value})} 
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-foreground focus:outline-none focus:border-electric-blue transition-colors"
+            >
+              <option>Distance</option>
+              <option>Duration</option>
+              <option>Frequency</option>
+              <option>Weight</option>
+            </select>
+          </div>
+          
+          <div>
+            <label className="block text-sm text-soft-graphite mb-2">Goal Title</label>
+            <input 
+              value={goalData.title} 
+              onChange={(e) => setGoalData({...goalData, title: e.target.value})} 
+              placeholder="e.g., Run 100km this month" 
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-foreground placeholder-soft-graphite focus:outline-none focus:border-electric-blue transition-colors" 
+            />
+          </div>
+          
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm text-soft-graphite mb-2">Target Value</label>
+              <input 
+                type="number" 
+                value={goalData.targetValue} 
+                onChange={(e) => setGoalData({...goalData, targetValue: e.target.value})} 
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-foreground focus:outline-none focus:border-electric-blue transition-colors" 
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-soft-graphite mb-2">Unit</label>
+              <input 
+                value={goalData.unit} 
+                onChange={(e) => setGoalData({...goalData, unit: e.target.value})} 
+                placeholder="km, hours, reps" 
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-foreground placeholder-soft-graphite focus:outline-none focus:border-electric-blue transition-colors" 
+              />
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm text-soft-graphite mb-2">Start Date</label>
+              <input 
+                type="date" 
+                value={goalData.startDate} 
+                onChange={(e) => setGoalData({...goalData, startDate: e.target.value})} 
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-foreground focus:outline-none focus:border-electric-blue transition-colors" 
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-soft-graphite mb-2">End Date</label>
+              <input 
+                type="date" 
+                value={goalData.endDate} 
+                onChange={(e) => setGoalData({...goalData, endDate: e.target.value})} 
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-foreground focus:outline-none focus:border-electric-blue transition-colors" 
+              />
+            </div>
+          </div>
+          
+          <Button 
+            onClick={handleSubmit}
+            className="w-full justify-center bg-auro-gold text-deep-charcoal hover:bg-auro-gold/90"
+          >
+            Create Goal
+          </Button>
+        </div>
+      </Modal>
+    );
+  };
+
+  const GoalDetailModal = () => {
+    if (!selectedGoal) return null;
+    
+    const goalActivities = activities.filter(a => a.goalId === selectedGoal.id);
+    const progress = calculateProgress(selectedGoal.currentValue, selectedGoal.targetValue);
+
+    return (
+      <Modal 
+        isOpen={showModal === 'goalDetail'} 
+        onClose={() => {
+          setShowModal(null);
+          setSelectedGoal(null);
+        }} 
+        title={selectedGoal.title}
+      >
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <ProgressRing progress={progress} size={120} />
+            <div className="text-right">
+              <div className="text-4xl font-stats font-bold text-foreground mb-1">
+                {selectedGoal.currentValue}
+              </div>
+              <div className="text-soft-graphite">of {selectedGoal.targetValue} {selectedGoal.unit}</div>
+              <Badge variant="secondary" className="mt-2 bg-electric-blue/20 text-electric-blue border-electric-blue/30">
+                {selectedGoal.type}
+              </Badge>
+            </div>
+          </div>
+          
+          <ProgressBar progress={progress} />
+          
+          <div className="flex gap-3">
+            <Button 
+              onClick={() => setShowModal('logActivity')}
+              className="flex-1 justify-center gap-2 bg-auro-gold text-deep-charcoal hover:bg-auro-gold/90"
+            >
+              <Plus size={20} />
+              Log Activity
+            </Button>
+            <Button 
+              variant="ghost" 
+              className="px-4"
+              onClick={() => {
+                setGoals(goals.filter(g => g.id !== selectedGoal.id));
+                setShowModal(null);
+                setSelectedGoal(null);
+              }}
+            >
+              <Trash2 size={20} />
+            </Button>
+          </div>
+          
+          <div>
+            <h3 className="text-lg font-heading font-bold text-foreground mb-4">Recent Activities</h3>
+            {goalActivities.length === 0 ? (
+              <div className="text-center py-8 text-soft-graphite">
+                <Activity className="mx-auto mb-2" size={32} />
+                <p>No activities logged yet</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {goalActivities.slice(-5).reverse().map(activity => (
+                  <div key={activity.id} className="bg-white/5 rounded-xl p-4 flex items-center justify-between">
+                    <div>
+                      <div className="text-foreground font-bold">{activity.value} {selectedGoal.unit}</div>
+                      <div className="text-sm text-soft-graphite">{formatDate(activity.date)}</div>
+                    </div>
+                    {activity.notes && (
+                      <div className="text-sm text-soft-graphite max-w-xs truncate">{activity.notes}</div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </Modal>
+    );
+  };
+
+  const LogActivityModal = () => {
+    const [activityData, setActivityData] = useState({
+      date: new Date().toISOString().split('T')[0],
+      value: '',
+      notes: ''
+    });
+
+    const handleSubmit = () => {
+      if (!activityData.value || !selectedGoal) return;
+      
+      const newActivity: ActivityLog = {
+        id: Date.now().toString(),
+        goalId: selectedGoal.id,
+        userId: user!.email,
+        date: activityData.date,
+        value: parseFloat(activityData.value),
+        notes: activityData.notes
+      };
+      
+      setActivities([...activities, newActivity]);
+      
+      const updatedGoals = goals.map(g => {
+        if (g.id === selectedGoal.id) {
+          return {
+            ...g,
+            currentValue: g.currentValue + parseFloat(activityData.value)
+          };
+        }
+        return g;
+      });
+      setGoals(updatedGoals);
+      
+      setShowModal('goalDetail');
+      setActivityData({ date: new Date().toISOString().split('T')[0], value: '', notes: '' });
+    };
+
+    return (
+      <Modal isOpen={showModal === 'logActivity'} onClose={() => setShowModal('goalDetail')} title="Log Activity">
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm text-soft-graphite mb-2">Date</label>
+            <input 
+              type="date" 
+              value={activityData.date} 
+              onChange={(e) => setActivityData({...activityData, date: e.target.value})} 
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-foreground focus:outline-none focus:border-electric-blue transition-colors" 
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm text-soft-graphite mb-2">Value ({selectedGoal?.unit})</label>
+            <input 
+              type="number" 
+              value={activityData.value} 
+              onChange={(e) => setActivityData({...activityData, value: e.target.value})} 
+              placeholder={`Enter ${selectedGoal?.unit}`} 
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-foreground placeholder-soft-graphite focus:outline-none focus:border-electric-blue transition-colors" 
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm text-soft-graphite mb-2">Notes (optional)</label>
+            <textarea 
+              value={activityData.notes} 
+              onChange={(e) => setActivityData({...activityData, notes: e.target.value})} 
+              placeholder="How did it go?" 
+              rows={3} 
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-foreground placeholder-soft-graphite focus:outline-none focus:border-electric-blue transition-colors resize-none" 
+            />
+          </div>
+          
+          <Button 
+            onClick={handleSubmit}
+            className="w-full justify-center bg-auro-gold text-deep-charcoal hover:bg-auro-gold/90"
+          >
+            Save Activity
+          </Button>
+        </div>
+      </Modal>
+    );
+  };
+
+  const NavBar = () => (
+    <nav className="fixed top-0 w-full bg-deep-charcoal/80 backdrop-blur-lg border-b border-white/10 z-40">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+        <div className="text-3xl font-heading font-bold text-auro-gold drop-shadow-[0_0_20px_rgba(255,200,87,0.5)]">
+          AuraQ
+        </div>
+        <div className="flex items-center gap-6">
+          <button 
+            onClick={() => setCurrentView('dashboard')} 
+            className={`font-heading font-semibold transition-colors ${
+              currentView === 'dashboard' ? 'text-foreground' : 'text-soft-graphite hover:text-foreground'
+            }`}
+          >
+            Dashboard
+          </button>
+          <button 
+            onClick={() => {
+              setUser(null);
+              setCurrentView('landing');
+            }} 
+            className="text-soft-graphite hover:text-foreground transition-colors"
+          >
+            <User size={24} />
+          </button>
+        </div>
+      </div>
+    </nav>
+  );
+
+  // Render
+  if (!user) {
+    if (currentView === 'login') return <AuthForm type="login" />;
+    if (currentView === 'signup') return <AuthForm type="signup" />;
+    return <LandingPage />;
+  }
+
+  return (
+    <div className="min-h-screen bg-deep-charcoal">
+      <NavBar />
+      
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-12">
+        <Dashboard />
+      </div>
+      
+      <CreateGoalModal />
+      {selectedGoal && <GoalDetailModal />}
+      {showModal === 'logActivity' && <LogActivityModal />}
+    </div>
+  );
+}
