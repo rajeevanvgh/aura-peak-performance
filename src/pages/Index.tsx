@@ -210,7 +210,23 @@ export default function Index() {
     const handleSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
       
-      if (!formData.email) return;
+      if (!formData.email) {
+        alert('Email is required');
+        return;
+      }
+      
+      if (type === 'signup') {
+        if (!formData.name || !formData.age || !formData.gender || !formData.fitnessLevel) {
+          alert('Please fill in all fields');
+          return;
+        }
+        
+        const ageNum = parseInt(formData.age);
+        if (ageNum < 18 || ageNum > 80) {
+          alert('Age must be between 18 and 80');
+          return;
+        }
+      }
       
       try {
         // Check if user exists
@@ -288,13 +304,16 @@ export default function Index() {
                   onChange={(e) => setFormData({...formData, name: e.target.value})}
                   className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-foreground placeholder-soft-graphite focus:outline-none focus:border-electric-blue transition-colors" 
                 />
-                <input 
-                  type="number" 
-                  placeholder="Age" 
+                <select
                   value={formData.age}
                   onChange={(e) => setFormData({...formData, age: e.target.value})}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-foreground placeholder-soft-graphite focus:outline-none focus:border-electric-blue transition-colors" 
-                />
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-foreground focus:outline-none focus:border-electric-blue transition-colors [&>option]:bg-deep-charcoal [&>option]:text-foreground"
+                >
+                  <option value="" className="bg-deep-charcoal text-foreground">Select Age</option>
+                  {Array.from({ length: 63 }, (_, i) => i + 18).map(age => (
+                    <option key={age} value={age} className="bg-deep-charcoal text-foreground">{age}</option>
+                  ))}
+                </select>
                 <select
                   value={formData.gender}
                   onChange={(e) => setFormData({...formData, gender: e.target.value})}
