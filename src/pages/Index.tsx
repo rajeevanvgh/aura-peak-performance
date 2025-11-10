@@ -735,12 +735,12 @@ export default function Index() {
             <select 
               value={goalData.type} 
               onChange={(e) => setGoalData({...goalData, type: e.target.value})} 
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-foreground focus:outline-none focus:border-electric-blue transition-colors"
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-foreground focus:outline-none focus:border-electric-blue transition-colors [&>option]:bg-deep-charcoal [&>option]:text-foreground"
             >
-              <option>Distance</option>
-              <option>Duration</option>
-              <option>Frequency</option>
-              <option>Weight</option>
+              <option className="bg-deep-charcoal text-foreground">Distance</option>
+              <option className="bg-deep-charcoal text-foreground">Duration</option>
+              <option className="bg-deep-charcoal text-foreground">Frequency</option>
+              <option className="bg-deep-charcoal text-foreground">Weight</option>
             </select>
           </div>
           
