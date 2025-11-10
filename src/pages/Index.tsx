@@ -198,7 +198,14 @@ export default function Index() {
   );
 
   const AuthForm = ({ type }: { type: 'login' | 'signup' }) => {
-    const [formData, setFormData] = useState({ email: '', password: '', name: '' });
+    const [formData, setFormData] = useState({ 
+      email: '', 
+      password: '', 
+      name: '',
+      age: '',
+      gender: '',
+      fitnessLevel: ''
+    });
     
     const handleSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
@@ -224,7 +231,10 @@ export default function Index() {
             .from('users')
             .insert({ 
               email: formData.email,
-              name: formData.name || 'Fitness Pro'
+              name: formData.name || 'Fitness Pro',
+              age: formData.age ? parseInt(formData.age) : null,
+              gender: formData.gender || null,
+              fitness_level: formData.fitnessLevel || null
             })
             .select()
             .single();
@@ -270,13 +280,42 @@ export default function Index() {
             />
             
             {type === 'signup' && (
-              <input 
-                type="text" 
-                placeholder="Name" 
-                value={formData.name}
-                onChange={(e) => setFormData({...formData, name: e.target.value})}
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-foreground placeholder-soft-graphite focus:outline-none focus:border-electric-blue transition-colors" 
-              />
+              <>
+                <input 
+                  type="text" 
+                  placeholder="Name" 
+                  value={formData.name}
+                  onChange={(e) => setFormData({...formData, name: e.target.value})}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-foreground placeholder-soft-graphite focus:outline-none focus:border-electric-blue transition-colors" 
+                />
+                <input 
+                  type="number" 
+                  placeholder="Age" 
+                  value={formData.age}
+                  onChange={(e) => setFormData({...formData, age: e.target.value})}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-foreground placeholder-soft-graphite focus:outline-none focus:border-electric-blue transition-colors" 
+                />
+                <select
+                  value={formData.gender}
+                  onChange={(e) => setFormData({...formData, gender: e.target.value})}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-foreground focus:outline-none focus:border-electric-blue transition-colors"
+                >
+                  <option value="">Select Gender</option>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                  <option value="other">Other</option>
+                </select>
+                <select
+                  value={formData.fitnessLevel}
+                  onChange={(e) => setFormData({...formData, fitnessLevel: e.target.value})}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-foreground focus:outline-none focus:border-electric-blue transition-colors"
+                >
+                  <option value="">Select Fitness Level</option>
+                  <option value="beginner">Beginner</option>
+                  <option value="intermediate">Intermediate</option>
+                  <option value="advanced">Advanced</option>
+                </select>
+              </>
             )}
             
             <Button 
