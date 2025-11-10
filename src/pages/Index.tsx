@@ -10,6 +10,9 @@ import { ProgressRing } from '@/components/ProgressRing';
 import { ProgressBar } from '@/components/ProgressBar';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
+import { User as SupabaseUser, Session } from '@supabase/supabase-js';
+import { signUpSchema, signInSchema, goalSchema, activitySchema } from '@/lib/validations';
+import { useToast } from '@/hooks/use-toast';
 
 // Types
 interface User {
@@ -58,79 +61,108 @@ const getDaysRemaining = (endDate: string) => {
 export default function Index() {
   const [currentView, setCurrentView] = useState('landing');
   const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const [authUser, setAuthUser] = useState<SupabaseUser | null>(null);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [activities, setActivities] = useState<ActivityLog[]>([]);
   const [showModal, setShowModal] = useState<string | null>(null);
   const [selectedGoal, setSelectedGoal] = useState<Goal | null>(null);
+  const { toast } = useToast();
 
-  // Load data from Supabase on mount
+  // Set up auth state listener and load data
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        const userEmail = localStorage.getItem('auraq_user_email');
-        if (!userEmail) return;
-
-        // Load user
-        const { data: userData } = await supabase
-          .from('users')
-          .select('*')
-          .eq('email', userEmail)
-          .single();
-        
-        if (userData) {
-          setUser(userData);
-          setCurrentView('dashboard');
-          
-          // Load goals
-          const { data: goalsData } = await supabase
-            .from('goals')
-            .select('*')
-            .eq('user_id', userData.id);
-          
-          if (goalsData) {
-            // Convert snake_case to camelCase
-            const formattedGoals: Goal[] = goalsData.map(g => ({
-              id: g.id,
-              userId: g.user_id,
-              type: g.type,
-              title: g.title,
-              targetValue: g.target_value,
-              currentValue: g.current_value,
-              unit: g.unit,
-              startDate: g.start_date,
-              endDate: g.end_date,
-              status: g.status as 'active' | 'completed' | 'paused',
-              createdAt: g.created_at
-            }));
-            setGoals(formattedGoals);
-          }
-          
-          // Load activities
-          const { data: activitiesData } = await supabase
-            .from('activities')
-            .select('*')
-            .eq('user_id', userData.id);
-          
-          if (activitiesData) {
-            // Convert snake_case to camelCase
-            const formattedActivities = activitiesData.map(a => ({
-              id: a.id,
-              goalId: a.goal_id,
-              userId: a.user_id,
-              date: a.date,
-              value: a.value,
-              notes: a.notes
-            }));
-            setActivities(formattedActivities);
-          }
-        }
-      } catch (error) {
-        console.error('Error loading data from database:', error);
+    // Set up auth state listener FIRST
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setSession(session);
+      setAuthUser(session?.user ?? null);
+      
+      // Load user data when authenticated
+      if (session?.user) {
+        setTimeout(() => {
+          loadUserData(session.user.id);
+        }, 0);
+      } else {
+        setUser(null);
+        setGoals([]);
+        setActivities([]);
+        setCurrentView('landing');
       }
-    };
-    
-    loadData();
+    });
+
+    // THEN check for existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setAuthUser(session?.user ?? null);
+      if (session?.user) {
+        loadUserData(session.user.id);
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
+
+  const loadUserData = async (userId: string) => {
+    try {
+      // Load user from users table
+      const { data: userData } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle();
+      
+      if (userData) {
+        setUser(userData);
+        setCurrentView('dashboard');
+        
+        // Load goals
+        const { data: goalsData } = await supabase
+          .from('goals')
+          .select('*')
+          .eq('user_id', userData.id);
+        
+        if (goalsData) {
+          const formattedGoals: Goal[] = goalsData.map(g => ({
+            id: g.id,
+            userId: g.user_id,
+            type: g.type,
+            title: g.title,
+            targetValue: g.target_value,
+            currentValue: g.current_value,
+            unit: g.unit,
+            startDate: g.start_date,
+            endDate: g.end_date,
+            status: g.status as 'active' | 'completed' | 'paused',
+            createdAt: g.created_at
+          }));
+          setGoals(formattedGoals);
+        }
+        
+        // Load activities
+        const { data: activitiesData } = await supabase
+          .from('activities')
+          .select('*')
+          .eq('user_id', userData.id);
+        
+        if (activitiesData) {
+          const formattedActivities = activitiesData.map(a => ({
+            id: a.id,
+            goalId: a.goal_id,
+            userId: a.user_id,
+            date: a.date,
+            value: a.value,
+            notes: a.notes
+          }));
+          setActivities(formattedActivities);
+        }
+      }
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to load user data'
+      });
+    }
+  };
 
 
   // Components
@@ -206,68 +238,120 @@ export default function Index() {
       gender: '',
       fitnessLevel: ''
     });
+    const [loading, setLoading] = useState(false);
     
     const handleSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
-      
-      if (!formData.email) {
-        alert('Email is required');
-        return;
-      }
-      
-      if (type === 'signup') {
-        if (!formData.name || !formData.age || !formData.gender || !formData.fitnessLevel) {
-          alert('Please fill in all fields');
-          return;
-        }
-        
-        const ageNum = parseInt(formData.age);
-        if (ageNum < 18 || ageNum > 80) {
-          alert('Age must be between 18 and 80');
-          return;
-        }
-      }
+      setLoading(true);
       
       try {
-        // Check if user exists
-        const { data: existingUser } = await supabase
-          .from('users')
-          .select('*')
-          .eq('email', formData.email)
-          .single();
-        
-        if (existingUser && type === 'login') {
-          // Login existing user
-          setUser(existingUser);
-          localStorage.setItem('auraq_user_email', existingUser.email);
-          setCurrentView('dashboard');
-        } else if (!existingUser && type === 'signup') {
-          // Create new user
-          const { data: newUser } = await supabase
-            .from('users')
-            .insert({ 
-              email: formData.email,
-              name: formData.name || 'Fitness Pro',
-              age: formData.age ? parseInt(formData.age) : null,
-              gender: formData.gender || null,
-              fitness_level: formData.fitnessLevel || null
-            })
-            .select()
-            .single();
+        if (type === 'login') {
+          // Validate login data
+          const loginData = signInSchema.parse({
+            email: formData.email,
+            password: formData.password
+          });
           
-          if (newUser) {
-            setUser(newUser);
-            localStorage.setItem('auraq_user_email', newUser.email);
-            setCurrentView('dashboard');
+          const { error } = await supabase.auth.signInWithPassword({
+            email: loginData.email,
+            password: loginData.password
+          });
+          
+          if (error) {
+            toast({
+              variant: 'destructive',
+              title: 'Login failed',
+              description: error.message
+            });
+            return;
           }
-        } else if (existingUser && type === 'signup') {
-          alert('User already exists. Please login instead.');
+          
+          toast({
+            title: 'Success',
+            description: 'Welcome back!'
+          });
         } else {
-          alert('User not found. Please sign up first.');
+          // Validate signup data
+          const signUpData = signUpSchema.parse({
+            email: formData.email,
+            password: formData.password,
+            name: formData.name,
+            age: parseInt(formData.age),
+            gender: formData.gender as 'male' | 'female' | 'other',
+            fitnessLevel: formData.fitnessLevel as 'beginner' | 'intermediate' | 'advanced'
+          });
+          
+          const redirectUrl = `${window.location.origin}/`;
+          
+          const { data, error } = await supabase.auth.signUp({
+            email: signUpData.email,
+            password: signUpData.password,
+            options: {
+              emailRedirectTo: redirectUrl,
+              data: {
+                name: signUpData.name,
+                age: signUpData.age,
+                gender: signUpData.gender,
+                fitness_level: signUpData.fitnessLevel
+              }
+            }
+          });
+          
+          if (error) {
+            toast({
+              variant: 'destructive',
+              title: 'Signup failed',
+              description: error.message
+            });
+            return;
+          }
+          
+          if (data.user) {
+            // Create user record in users table
+            const { error: userError } = await supabase
+              .from('users')
+              .insert({
+                id: data.user.id,
+                email: signUpData.email,
+                name: signUpData.name,
+                age: signUpData.age,
+                gender: signUpData.gender,
+                fitness_level: signUpData.fitnessLevel
+              });
+            
+            if (userError) {
+              toast({
+                variant: 'destructive',
+                title: 'Error',
+                description: 'Failed to create user profile'
+              });
+              return;
+            }
+            
+            toast({
+              title: 'Success',
+              description: 'Account created successfully!'
+            });
+          }
         }
-      } catch (error) {
-        console.error('Auth error:', error);
-        alert('Authentication failed. Please try again.');
+      } catch (error: any) {
+        if (error.errors) {
+          // Zod validation errors
+          const firstError = error.errors[0];
+          toast({
+            variant: 'destructive',
+            title: 'Validation error',
+            description: firstError.message
+          });
+        } else {
+          toast({
+            variant: 'destructive',
+            title: 'Error',
+            description: 'An unexpected error occurred'
+          });
+        }
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -340,9 +424,10 @@ export default function Index() {
             
             <Button 
               type="submit"
+              disabled={loading}
               className="w-full justify-center bg-auro-gold text-deep-charcoal hover:bg-auro-gold/90"
             >
-              {type === 'login' ? 'Sign In' : 'Create Account'}
+              {loading ? 'Please wait...' : type === 'login' ? 'Sign In' : 'Create Account'}
             </Button>
             
             <button 
@@ -555,30 +640,45 @@ export default function Index() {
     });
 
     const handleSubmit = async () => {
-      if (!goalData.title || !goalData.targetValue || !goalData.endDate || !user) {
-        console.log('Goal validation failed - missing required fields');
-        return;
-      }
+      if (!user) return;
       
       try {
-        const { data: newGoal } = await supabase
+        // Validate goal data
+        const validatedData = goalSchema.parse({
+          type: goalData.type,
+          title: goalData.title,
+          targetValue: parseFloat(goalData.targetValue),
+          unit: goalData.unit,
+          startDate: goalData.startDate,
+          endDate: goalData.endDate
+        });
+        
+        const { data: newGoal, error } = await supabase
           .from('goals')
           .insert({
             user_id: user.id,
-            type: goalData.type,
-            title: goalData.title,
-            target_value: parseFloat(goalData.targetValue),
+            type: validatedData.type,
+            title: validatedData.title,
+            target_value: validatedData.targetValue,
             current_value: 0,
-            unit: goalData.unit,
-            start_date: goalData.startDate,
-            end_date: goalData.endDate,
+            unit: validatedData.unit,
+            start_date: validatedData.startDate,
+            end_date: validatedData.endDate,
             status: 'active'
           })
           .select()
           .single();
         
+        if (error) {
+          toast({
+            variant: 'destructive',
+            title: 'Error',
+            description: 'Failed to create goal'
+          });
+          return;
+        }
+        
         if (newGoal) {
-          // Convert to camelCase for local state
           const formattedGoal: Goal = {
             id: newGoal.id,
             userId: newGoal.user_id,
@@ -603,10 +703,27 @@ export default function Index() {
             startDate: new Date().toISOString().split('T')[0],
             endDate: ''
           });
+          
+          toast({
+            title: 'Success',
+            description: 'Goal created successfully!'
+          });
         }
-      } catch (error) {
-        console.error('Error creating goal:', error);
-        alert('Failed to create goal. Please try again.');
+      } catch (error: any) {
+        if (error.errors) {
+          const firstError = error.errors[0];
+          toast({
+            variant: 'destructive',
+            title: 'Validation error',
+            description: firstError.message
+          });
+        } else {
+          toast({
+            variant: 'destructive',
+            title: 'Error',
+            description: 'Failed to create goal'
+          });
+        }
       }
     };
 
@@ -734,17 +851,34 @@ export default function Index() {
               className="px-4"
               onClick={async () => {
                 try {
-                  await supabase
+                  const { error } = await supabase
                     .from('goals')
                     .delete()
                     .eq('id', selectedGoal.id);
                   
+                  if (error) {
+                    toast({
+                      variant: 'destructive',
+                      title: 'Error',
+                      description: 'Failed to delete goal'
+                    });
+                    return;
+                  }
+                  
                   setGoals(goals.filter(g => g.id !== selectedGoal.id));
                   setShowModal(null);
                   setSelectedGoal(null);
+                  
+                  toast({
+                    title: 'Success',
+                    description: 'Goal deleted successfully'
+                  });
                 } catch (error) {
-                  console.error('Error deleting goal:', error);
-                  alert('Failed to delete goal. Please try again.');
+                  toast({
+                    variant: 'destructive',
+                    title: 'Error',
+                    description: 'Failed to delete goal'
+                  });
                 }
               }}
             >
@@ -788,31 +922,55 @@ export default function Index() {
     });
 
     const handleSubmit = async () => {
-      if (!activityData.value || !selectedGoal || !user) return;
+      if (!selectedGoal || !user) return;
       
       try {
+        // Validate activity data
+        const validatedData = activitySchema.parse({
+          date: activityData.date,
+          value: parseFloat(activityData.value),
+          notes: activityData.notes || undefined
+        });
+        
         // Insert activity
-        const { data: newActivity } = await supabase
+        const { data: newActivity, error: activityError } = await supabase
           .from('activities')
           .insert({
             goal_id: selectedGoal.id,
             user_id: user.id,
-            date: activityData.date,
-            value: parseFloat(activityData.value),
-            notes: activityData.notes
+            date: validatedData.date,
+            value: validatedData.value,
+            notes: validatedData.notes || null
           })
           .select()
           .single();
         
+        if (activityError) {
+          toast({
+            variant: 'destructive',
+            title: 'Error',
+            description: 'Failed to log activity'
+          });
+          return;
+        }
+        
         // Update goal current_value
-        const newCurrentValue = selectedGoal.currentValue + parseFloat(activityData.value);
-        await supabase
+        const newCurrentValue = selectedGoal.currentValue + validatedData.value;
+        const { error: updateError } = await supabase
           .from('goals')
           .update({ current_value: newCurrentValue })
           .eq('id', selectedGoal.id);
         
+        if (updateError) {
+          toast({
+            variant: 'destructive',
+            title: 'Error',
+            description: 'Failed to update goal'
+          });
+          return;
+        }
+        
         if (newActivity) {
-          // Convert to camelCase for local state
           const formattedActivity: ActivityLog = {
             id: newActivity.id,
             goalId: newActivity.goal_id,
@@ -838,10 +996,27 @@ export default function Index() {
           
           setShowModal('goalDetail');
           setActivityData({ date: new Date().toISOString().split('T')[0], value: '', notes: '' });
+          
+          toast({
+            title: 'Success',
+            description: 'Activity logged successfully!'
+          });
         }
-      } catch (error) {
-        console.error('Error logging activity:', error);
-        alert('Failed to log activity. Please try again.');
+      } catch (error: any) {
+        if (error.errors) {
+          const firstError = error.errors[0];
+          toast({
+            variant: 'destructive',
+            title: 'Validation error',
+            description: firstError.message
+          });
+        } else {
+          toast({
+            variant: 'destructive',
+            title: 'Error',
+            description: 'Failed to log activity'
+          });
+        }
       }
     };
 
@@ -894,13 +1069,29 @@ export default function Index() {
   const NavBar = () => {
     const [showUserMenu, setShowUserMenu] = useState(false);
 
-    const handleSignOut = () => {
-      localStorage.removeItem('auraq_user_email');
+    const handleSignOut = async () => {
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) {
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: 'Failed to sign out'
+        });
+        return;
+      }
+      
+      // Clean up local state
       setUser(null);
       setGoals([]);
       setActivities([]);
       setCurrentView('landing');
       setShowUserMenu(false);
+      
+      toast({
+        title: 'Success',
+        description: 'Signed out successfully'
+      });
     };
 
     return (
