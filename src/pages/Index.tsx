@@ -61,6 +61,56 @@ export default function Index() {
   const [showModal, setShowModal] = useState<string | null>(null);
   const [selectedGoal, setSelectedGoal] = useState<Goal | null>(null);
 
+  // Load data from localStorage on mount
+  useEffect(() => {
+    const loadData = () => {
+      try {
+        const userData = localStorage.getItem('auraq_user');
+        if (userData) {
+          setUser(JSON.parse(userData));
+          setCurrentView('dashboard');
+        }
+        
+        const goalsData = localStorage.getItem('auraq_goals');
+        if (goalsData) {
+          setGoals(JSON.parse(goalsData));
+        }
+        
+        const activitiesData = localStorage.getItem('auraq_activities');
+        if (activitiesData) {
+          setActivities(JSON.parse(activitiesData));
+        }
+      } catch (error) {
+        console.error('Error loading data from localStorage:', error);
+      }
+    };
+    
+    loadData();
+  }, []);
+
+  // Save user data to localStorage when it changes
+  useEffect(() => {
+    if (user) {
+      localStorage.setItem('auraq_user', JSON.stringify(user));
+    } else {
+      localStorage.removeItem('auraq_user');
+    }
+  }, [user]);
+
+  // Save goals to localStorage when they change
+  useEffect(() => {
+    if (goals.length > 0) {
+      localStorage.setItem('auraq_goals', JSON.stringify(goals));
+    }
+  }, [goals]);
+
+  // Save activities to localStorage when they change
+  useEffect(() => {
+    if (activities.length > 0) {
+      localStorage.setItem('auraq_activities', JSON.stringify(activities));
+    }
+  }, [activities]);
+
   // Demo data for first time users
   useEffect(() => {
     const initDemoData = () => {
@@ -429,7 +479,10 @@ export default function Index() {
     });
 
     const handleSubmit = () => {
-      if (!goalData.title || !goalData.targetValue || !goalData.endDate) return;
+      if (!goalData.title || !goalData.targetValue || !goalData.endDate) {
+        console.log('Goal validation failed - missing required fields');
+        return;
+      }
       
       const newGoal: Goal = {
         id: Date.now().toString(),
@@ -444,8 +497,18 @@ export default function Index() {
         status: 'active',
         createdAt: new Date().toISOString()
       };
+      
+      console.log('Creating new goal:', newGoal);
       setGoals([...goals, newGoal]);
       setShowModal(null);
+      setGoalData({
+        type: 'Distance',
+        title: '',
+        targetValue: '',
+        unit: 'km',
+        startDate: new Date().toISOString().split('T')[0],
+        endDate: ''
+      });
     };
 
     return (
