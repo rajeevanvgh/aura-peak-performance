@@ -9,9 +9,11 @@ import { Button } from '@/components/ui/button';
 import { ProgressRing } from '@/components/ProgressRing';
 import { ProgressBar } from '@/components/ProgressBar';
 import { Badge } from '@/components/ui/badge';
+import { supabase } from '@/integrations/supabase/client';
 
 // Types
 interface User {
+  id: string;
   name: string;
   email: string;
 }
@@ -61,96 +63,75 @@ export default function Index() {
   const [showModal, setShowModal] = useState<string | null>(null);
   const [selectedGoal, setSelectedGoal] = useState<Goal | null>(null);
 
-  // Load data from localStorage on mount
+  // Load data from Supabase on mount
   useEffect(() => {
-    const loadData = () => {
+    const loadData = async () => {
       try {
-        const userData = localStorage.getItem('auraq_user');
+        const userEmail = localStorage.getItem('auraq_user_email');
+        if (!userEmail) return;
+
+        // Load user
+        const { data: userData } = await supabase
+          .from('users')
+          .select('*')
+          .eq('email', userEmail)
+          .single();
+        
         if (userData) {
-          setUser(JSON.parse(userData));
+          setUser(userData);
           setCurrentView('dashboard');
-        }
-        
-        const goalsData = localStorage.getItem('auraq_goals');
-        if (goalsData) {
-          setGoals(JSON.parse(goalsData));
-        }
-        
-        const activitiesData = localStorage.getItem('auraq_activities');
-        if (activitiesData) {
-          setActivities(JSON.parse(activitiesData));
+          
+          // Load goals
+          const { data: goalsData } = await supabase
+            .from('goals')
+            .select('*')
+            .eq('user_id', userData.id);
+          
+          if (goalsData) {
+            // Convert snake_case to camelCase
+            const formattedGoals: Goal[] = goalsData.map(g => ({
+              id: g.id,
+              userId: g.user_id,
+              type: g.type,
+              title: g.title,
+              targetValue: g.target_value,
+              currentValue: g.current_value,
+              unit: g.unit,
+              startDate: g.start_date,
+              endDate: g.end_date,
+              status: g.status as 'active' | 'completed' | 'paused',
+              createdAt: g.created_at
+            }));
+            setGoals(formattedGoals);
+          }
+          
+          // Load activities
+          const { data: activitiesData } = await supabase
+            .from('activities')
+            .select('*')
+            .eq('user_id', userData.id);
+          
+          if (activitiesData) {
+            // Convert snake_case to camelCase
+            const formattedActivities = activitiesData.map(a => ({
+              id: a.id,
+              goalId: a.goal_id,
+              userId: a.user_id,
+              date: a.date,
+              value: a.value,
+              notes: a.notes
+            }));
+            setActivities(formattedActivities);
+          }
         }
       } catch (error) {
-        console.error('Error loading data from localStorage:', error);
+        console.error('Error loading data from database:', error);
       }
     };
     
     loadData();
   }, []);
 
-  // Save user data to localStorage when it changes
-  useEffect(() => {
-    if (user) {
-      localStorage.setItem('auraq_user', JSON.stringify(user));
-    } else {
-      localStorage.removeItem('auraq_user');
-    }
-  }, [user]);
-
-  // Save goals to localStorage when they change
-  useEffect(() => {
-    if (goals.length > 0) {
-      localStorage.setItem('auraq_goals', JSON.stringify(goals));
-    }
-  }, [goals]);
-
-  // Save activities to localStorage when they change
-  useEffect(() => {
-    if (activities.length > 0) {
-      localStorage.setItem('auraq_activities', JSON.stringify(activities));
-    }
-  }, [activities]);
-
-  // Demo data for first time users
-  useEffect(() => {
-    const initDemoData = () => {
-      if (goals.length === 0 && user) {
-        const demoGoals: Goal[] = [
-          {
-            id: '1',
-            userId: user.email,
-            type: 'Distance',
-            title: 'Run 50km this month',
-            targetValue: 50,
-            currentValue: 32,
-            unit: 'km',
-            startDate: new Date(new Date().setDate(1)).toISOString(),
-            endDate: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString(),
-            status: 'active',
-            createdAt: new Date().toISOString()
-          },
-          {
-            id: '2',
-            userId: user.email,
-            type: 'Frequency',
-            title: 'Workout 15 times',
-            targetValue: 15,
-            currentValue: 9,
-            unit: 'sessions',
-            startDate: new Date(new Date().setDate(1)).toISOString(),
-            endDate: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString(),
-            status: 'active',
-            createdAt: new Date().toISOString()
-          }
-        ];
-        setGoals(demoGoals);
-      }
-    };
-    
-    if (user && goals.length === 0) {
-      initDemoData();
-    }
-  }, [user]);
 
   // Components
   const LandingPage = () => (
@@ -219,13 +200,49 @@ export default function Index() {
   const AuthForm = ({ type }: { type: 'login' | 'signup' }) => {
     const [formData, setFormData] = useState({ email: '', password: '', name: '' });
     
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
-      setUser({ 
-        name: formData.name || 'Fitness Pro', 
-        email: formData.email || 'user@auraq.com' 
-      });
-      setCurrentView('dashboard');
+      
+      if (!formData.email) return;
+      
+      try {
+        // Check if user exists
+        const { data: existingUser } = await supabase
+          .from('users')
+          .select('*')
+          .eq('email', formData.email)
+          .single();
+        
+        if (existingUser && type === 'login') {
+          // Login existing user
+          setUser(existingUser);
+          localStorage.setItem('auraq_user_email', existingUser.email);
+          setCurrentView('dashboard');
+        } else if (!existingUser && type === 'signup') {
+          // Create new user
+          const { data: newUser } = await supabase
+            .from('users')
+            .insert({ 
+              email: formData.email,
+              name: formData.name || 'Fitness Pro'
+            })
+            .select()
+            .single();
+          
+          if (newUser) {
+            setUser(newUser);
+            localStorage.setItem('auraq_user_email', newUser.email);
+            setCurrentView('dashboard');
+          }
+        } else if (existingUser && type === 'signup') {
+          alert('User already exists. Please login instead.');
+        } else {
+          alert('User not found. Please sign up first.');
+        }
+      } catch (error) {
+        console.error('Auth error:', error);
+        alert('Authentication failed. Please try again.');
+      }
     };
 
     return (
@@ -478,37 +495,60 @@ export default function Index() {
       endDate: ''
     });
 
-    const handleSubmit = () => {
-      if (!goalData.title || !goalData.targetValue || !goalData.endDate) {
+    const handleSubmit = async () => {
+      if (!goalData.title || !goalData.targetValue || !goalData.endDate || !user) {
         console.log('Goal validation failed - missing required fields');
         return;
       }
       
-      const newGoal: Goal = {
-        id: Date.now().toString(),
-        userId: user!.email,
-        type: goalData.type,
-        title: goalData.title,
-        targetValue: parseFloat(goalData.targetValue),
-        currentValue: 0,
-        unit: goalData.unit,
-        startDate: goalData.startDate,
-        endDate: goalData.endDate,
-        status: 'active',
-        createdAt: new Date().toISOString()
-      };
-      
-      console.log('Creating new goal:', newGoal);
-      setGoals([...goals, newGoal]);
-      setShowModal(null);
-      setGoalData({
-        type: 'Distance',
-        title: '',
-        targetValue: '',
-        unit: 'km',
-        startDate: new Date().toISOString().split('T')[0],
-        endDate: ''
-      });
+      try {
+        const { data: newGoal } = await supabase
+          .from('goals')
+          .insert({
+            user_id: user.id,
+            type: goalData.type,
+            title: goalData.title,
+            target_value: parseFloat(goalData.targetValue),
+            current_value: 0,
+            unit: goalData.unit,
+            start_date: goalData.startDate,
+            end_date: goalData.endDate,
+            status: 'active'
+          })
+          .select()
+          .single();
+        
+        if (newGoal) {
+          // Convert to camelCase for local state
+          const formattedGoal: Goal = {
+            id: newGoal.id,
+            userId: newGoal.user_id,
+            type: newGoal.type,
+            title: newGoal.title,
+            targetValue: newGoal.target_value,
+            currentValue: newGoal.current_value,
+            unit: newGoal.unit,
+            startDate: newGoal.start_date,
+            endDate: newGoal.end_date,
+            status: newGoal.status as 'active' | 'completed' | 'paused',
+            createdAt: newGoal.created_at
+          };
+          
+          setGoals([...goals, formattedGoal]);
+          setShowModal(null);
+          setGoalData({
+            type: 'Distance',
+            title: '',
+            targetValue: '',
+            unit: 'km',
+            startDate: new Date().toISOString().split('T')[0],
+            endDate: ''
+          });
+        }
+      } catch (error) {
+        console.error('Error creating goal:', error);
+        alert('Failed to create goal. Please try again.');
+      }
     };
 
     return (
@@ -633,10 +673,20 @@ export default function Index() {
             <Button 
               variant="ghost" 
               className="px-4"
-              onClick={() => {
-                setGoals(goals.filter(g => g.id !== selectedGoal.id));
-                setShowModal(null);
-                setSelectedGoal(null);
+              onClick={async () => {
+                try {
+                  await supabase
+                    .from('goals')
+                    .delete()
+                    .eq('id', selectedGoal.id);
+                  
+                  setGoals(goals.filter(g => g.id !== selectedGoal.id));
+                  setShowModal(null);
+                  setSelectedGoal(null);
+                } catch (error) {
+                  console.error('Error deleting goal:', error);
+                  alert('Failed to delete goal. Please try again.');
+                }
               }}
             >
               <Trash2 size={20} />
@@ -678,33 +728,62 @@ export default function Index() {
       notes: ''
     });
 
-    const handleSubmit = () => {
-      if (!activityData.value || !selectedGoal) return;
+    const handleSubmit = async () => {
+      if (!activityData.value || !selectedGoal || !user) return;
       
-      const newActivity: ActivityLog = {
-        id: Date.now().toString(),
-        goalId: selectedGoal.id,
-        userId: user!.email,
-        date: activityData.date,
-        value: parseFloat(activityData.value),
-        notes: activityData.notes
-      };
-      
-      setActivities([...activities, newActivity]);
-      
-      const updatedGoals = goals.map(g => {
-        if (g.id === selectedGoal.id) {
-          return {
-            ...g,
-            currentValue: g.currentValue + parseFloat(activityData.value)
+      try {
+        // Insert activity
+        const { data: newActivity } = await supabase
+          .from('activities')
+          .insert({
+            goal_id: selectedGoal.id,
+            user_id: user.id,
+            date: activityData.date,
+            value: parseFloat(activityData.value),
+            notes: activityData.notes
+          })
+          .select()
+          .single();
+        
+        // Update goal current_value
+        const newCurrentValue = selectedGoal.currentValue + parseFloat(activityData.value);
+        await supabase
+          .from('goals')
+          .update({ current_value: newCurrentValue })
+          .eq('id', selectedGoal.id);
+        
+        if (newActivity) {
+          // Convert to camelCase for local state
+          const formattedActivity: ActivityLog = {
+            id: newActivity.id,
+            goalId: newActivity.goal_id,
+            userId: newActivity.user_id,
+            date: newActivity.date,
+            value: newActivity.value,
+            notes: newActivity.notes
           };
+          
+          setActivities([...activities, formattedActivity]);
+          
+          // Update local goals state
+          const updatedGoals = goals.map(g => {
+            if (g.id === selectedGoal.id) {
+              return { ...g, currentValue: newCurrentValue };
+            }
+            return g;
+          });
+          setGoals(updatedGoals);
+          
+          // Update selectedGoal for the modal
+          setSelectedGoal({ ...selectedGoal, currentValue: newCurrentValue });
+          
+          setShowModal('goalDetail');
+          setActivityData({ date: new Date().toISOString().split('T')[0], value: '', notes: '' });
         }
-        return g;
-      });
-      setGoals(updatedGoals);
-      
-      setShowModal('goalDetail');
-      setActivityData({ date: new Date().toISOString().split('T')[0], value: '', notes: '' });
+      } catch (error) {
+        console.error('Error logging activity:', error);
+        alert('Failed to log activity. Please try again.');
+      }
     };
 
     return (
@@ -757,9 +836,7 @@ export default function Index() {
     const [showUserMenu, setShowUserMenu] = useState(false);
 
     const handleSignOut = () => {
-      localStorage.removeItem('auraq_user');
-      localStorage.removeItem('auraq_goals');
-      localStorage.removeItem('auraq_activities');
+      localStorage.removeItem('auraq_user_email');
       setUser(null);
       setGoals([]);
       setActivities([]);

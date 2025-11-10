@@ -14,7 +14,134 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      activities: {
+        Row: {
+          created_at: string | null
+          date: string
+          duration: number | null
+          goal_id: string | null
+          id: string
+          notes: string | null
+          user_id: string | null
+          value: number
+        }
+        Insert: {
+          created_at?: string | null
+          date: string
+          duration?: number | null
+          goal_id?: string | null
+          id?: string
+          notes?: string | null
+          user_id?: string | null
+          value: number
+        }
+        Update: {
+          created_at?: string | null
+          date?: string
+          duration?: number | null
+          goal_id?: string | null
+          id?: string
+          notes?: string | null
+          user_id?: string | null
+          value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activities_goal_id_fkey"
+            columns: ["goal_id"]
+            isOneToOne: false
+            referencedRelation: "goals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activities_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      goals: {
+        Row: {
+          created_at: string | null
+          current_value: number | null
+          end_date: string
+          id: string
+          start_date: string
+          status: string | null
+          target_value: number
+          title: string
+          type: string
+          unit: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          current_value?: number | null
+          end_date: string
+          id?: string
+          start_date: string
+          status?: string | null
+          target_value: number
+          title: string
+          type: string
+          unit: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          current_value?: number | null
+          end_date?: string
+          id?: string
+          start_date?: string
+          status?: string | null
+          target_value?: number
+          title?: string
+          type?: string
+          unit?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "goals_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      users: {
+        Row: {
+          age: number | null
+          created_at: string | null
+          email: string
+          fitness_level: string | null
+          gender: string | null
+          id: string
+          name: string | null
+        }
+        Insert: {
+          age?: number | null
+          created_at?: string | null
+          email: string
+          fitness_level?: string | null
+          gender?: string | null
+          id?: string
+          name?: string | null
+        }
+        Update: {
+          age?: number | null
+          created_at?: string | null
+          email?: string
+          fitness_level?: string | null
+          gender?: string | null
+          id?: string
+          name?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
