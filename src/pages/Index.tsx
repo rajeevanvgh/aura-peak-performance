@@ -753,34 +753,80 @@ export default function Index() {
     );
   };
 
-  const NavBar = () => (
-    <nav className="fixed top-0 w-full bg-deep-charcoal/80 backdrop-blur-lg border-b border-white/10 z-40">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
-        <div className="text-3xl font-heading font-bold text-auro-gold drop-shadow-[0_0_20px_rgba(255,200,87,0.5)]">
-          AuraQ
+  const NavBar = () => {
+    const [showUserMenu, setShowUserMenu] = useState(false);
+
+    const handleSignOut = () => {
+      localStorage.removeItem('auraq_user');
+      localStorage.removeItem('auraq_goals');
+      localStorage.removeItem('auraq_activities');
+      setUser(null);
+      setGoals([]);
+      setActivities([]);
+      setCurrentView('landing');
+      setShowUserMenu(false);
+    };
+
+    return (
+      <nav className="fixed top-0 w-full bg-deep-charcoal/80 backdrop-blur-lg border-b border-white/10 z-40">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+          <div className="text-3xl font-heading font-bold text-auro-gold drop-shadow-[0_0_20px_rgba(255,200,87,0.5)]">
+            AuraQ
+          </div>
+          <div className="flex items-center gap-6">
+            <button 
+              onClick={() => setCurrentView('dashboard')} 
+              className={`font-heading font-semibold transition-colors ${
+                currentView === 'dashboard' ? 'text-foreground' : 'text-soft-graphite hover:text-foreground'
+              }`}
+            >
+              Dashboard
+            </button>
+            <div className="relative">
+              <button 
+                onClick={() => setShowUserMenu(!showUserMenu)} 
+                className="flex items-center gap-2 text-soft-graphite hover:text-foreground transition-colors"
+              >
+                <User size={24} />
+                <span className="text-sm font-body hidden md:block">{user?.name}</span>
+              </button>
+              
+              {showUserMenu && (
+                <>
+                  <div 
+                    className="fixed inset-0 z-40" 
+                    onClick={() => setShowUserMenu(false)}
+                  />
+                  <GlassCard className="absolute right-0 mt-2 w-56 p-3 z-50">
+                    <div className="flex items-center gap-3 mb-3 pb-3 border-b border-white/10">
+                      <div className="w-10 h-10 rounded-full bg-auro-gold/20 flex items-center justify-center">
+                        <User size={20} className="text-auro-gold" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-heading font-bold text-foreground truncate">
+                          {user?.name}
+                        </div>
+                        <div className="text-xs text-soft-graphite truncate">
+                          {user?.email}
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={handleSignOut}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-soft-graphite hover:text-foreground hover:bg-white/5 rounded-lg transition-colors"
+                    >
+                      <LogIn size={16} className="rotate-180" />
+                      Sign Out
+                    </button>
+                  </GlassCard>
+                </>
+              )}
+            </div>
+          </div>
         </div>
-        <div className="flex items-center gap-6">
-          <button 
-            onClick={() => setCurrentView('dashboard')} 
-            className={`font-heading font-semibold transition-colors ${
-              currentView === 'dashboard' ? 'text-foreground' : 'text-soft-graphite hover:text-foreground'
-            }`}
-          >
-            Dashboard
-          </button>
-          <button 
-            onClick={() => {
-              setUser(null);
-              setCurrentView('landing');
-            }} 
-            className="text-soft-graphite hover:text-foreground transition-colors"
-          >
-            <User size={24} />
-          </button>
-        </div>
-      </div>
-    </nav>
-  );
+      </nav>
+    );
+  };
 
   // Render
   if (!user) {
