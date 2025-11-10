@@ -298,22 +298,22 @@ export default function Index() {
                 <select
                   value={formData.gender}
                   onChange={(e) => setFormData({...formData, gender: e.target.value})}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-foreground focus:outline-none focus:border-electric-blue transition-colors"
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-foreground focus:outline-none focus:border-electric-blue transition-colors [&>option]:bg-deep-charcoal [&>option]:text-foreground"
                 >
-                  <option value="">Select Gender</option>
-                  <option value="male">Male</option>
-                  <option value="female">Female</option>
-                  <option value="other">Other</option>
+                  <option value="" className="bg-deep-charcoal text-foreground">Select Gender</option>
+                  <option value="male" className="bg-deep-charcoal text-foreground">Male</option>
+                  <option value="female" className="bg-deep-charcoal text-foreground">Female</option>
+                  <option value="other" className="bg-deep-charcoal text-foreground">Other</option>
                 </select>
                 <select
                   value={formData.fitnessLevel}
                   onChange={(e) => setFormData({...formData, fitnessLevel: e.target.value})}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-foreground focus:outline-none focus:border-electric-blue transition-colors"
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-foreground focus:outline-none focus:border-electric-blue transition-colors [&>option]:bg-deep-charcoal [&>option]:text-foreground"
                 >
-                  <option value="">Select Fitness Level</option>
-                  <option value="beginner">Beginner</option>
-                  <option value="intermediate">Intermediate</option>
-                  <option value="advanced">Advanced</option>
+                  <option value="" className="bg-deep-charcoal text-foreground">Select Fitness Level</option>
+                  <option value="beginner" className="bg-deep-charcoal text-foreground">Beginner</option>
+                  <option value="intermediate" className="bg-deep-charcoal text-foreground">Intermediate</option>
+                  <option value="advanced" className="bg-deep-charcoal text-foreground">Advanced</option>
                 </select>
               </>
             )}
