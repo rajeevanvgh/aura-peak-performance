@@ -888,7 +888,13 @@ export default function Index() {
                   setGoalData({...goalData, endDate: date});
                   if (errors.endDate) setErrors(prev => ({ ...prev, endDate: '' }));
                 }}
-                minDate={goalData.startDate ? new Date(new Date(goalData.startDate).getTime() + 86400000) : new Date()}
+                minDate={goalData.startDate ? (() => {
+                  const start = new Date(goalData.startDate);
+                  const nextDay = new Date(start);
+                  nextDay.setDate(start.getDate() + 1);
+                  nextDay.setHours(0, 0, 0, 0);
+                  return nextDay;
+                })() : new Date()}
                 placeholder="Select end date"
                 error={!!errors.endDate}
               />
