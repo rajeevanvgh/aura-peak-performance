@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { ProgressRing } from '@/components/ProgressRing';
 import { ProgressBar } from '@/components/ProgressBar';
 import { Badge } from '@/components/ui/badge';
+import { Logo } from '@/components/Logo';
 import { supabase } from '@/integrations/supabase/client';
 import { User as SupabaseUser, Session } from '@supabase/supabase-js';
 import { signUpSchema, signInSchema, goalSchema, activitySchema } from '@/lib/validations';
@@ -172,7 +173,7 @@ export default function Index() {
     <div className="min-h-screen bg-deep-charcoal">
       <nav className="fixed top-0 w-full bg-deep-charcoal/80 backdrop-blur-lg border-b border-white/10 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
-          <div className="text-3xl font-heading font-bold text-auro-gold">AuraQ</div>
+          <Logo size="medium" className="hover:opacity-80 transition-opacity cursor-pointer" />
           <div className="flex gap-3">
             <Button 
               variant="ghost" 
@@ -195,6 +196,7 @@ export default function Index() {
       
       <div className="pt-32 pb-20 px-4">
         <div className="max-w-4xl mx-auto text-center">
+          <Logo size="hero" className="mx-auto mb-8" animate />
           <h1 className="text-6xl md:text-7xl font-heading font-bold text-foreground mb-6 leading-tight">
             Activate Your <span className="text-auro-gold">Potential</span>
           </h1>
@@ -228,6 +230,20 @@ export default function Index() {
           </GlassCard>
         </div>
       </div>
+      
+      <footer className="border-t border-white/10 py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <Logo size="small" />
+            <span className="text-soft-graphite text-sm">© 2024 AuraQ. All rights reserved.</span>
+          </div>
+          <div className="flex gap-6 text-sm text-soft-graphite">
+            <a href="#" className="hover:text-foreground transition-colors">Privacy</a>
+            <a href="#" className="hover:text-foreground transition-colors">Terms</a>
+            <a href="#" className="hover:text-foreground transition-colors">Contact</a>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 
@@ -339,7 +355,7 @@ export default function Index() {
       <div className="min-h-screen bg-deep-charcoal flex items-center justify-center p-4">
         <GlassCard className="max-w-md w-full">
           <div className="text-center mb-8">
-            <div className="text-4xl font-heading font-bold text-auro-gold mb-2">AuraQ</div>
+            <Logo size="large" className="mx-auto mb-4" />
             <p className="text-soft-graphite">{type === 'login' ? 'Welcome back' : 'Start your journey'}</p>
           </div>
           
@@ -1134,9 +1150,7 @@ export default function Index() {
     return (
       <nav className="fixed top-0 w-full bg-deep-charcoal/80 backdrop-blur-lg border-b border-white/10 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
-          <div className="text-3xl font-heading font-bold text-auro-gold drop-shadow-[0_0_20px_rgba(255,200,87,0.5)]">
-            AuraQ
-          </div>
+          <Logo size="medium" className="drop-shadow-[0_0_20px_rgba(255,200,87,0.5)] hover:opacity-80 transition-opacity cursor-pointer" />
           <div className="flex items-center gap-6">
             <button 
               onClick={() => setCurrentView('dashboard')} 
@@ -1200,12 +1214,21 @@ export default function Index() {
   }
 
   return (
-    <div className="min-h-screen bg-deep-charcoal">
+    <div className="min-h-screen bg-deep-charcoal flex flex-col">
       <NavBar />
       
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-12">
+      <div className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-12 w-full">
         <Dashboard />
       </div>
+      
+      <footer className="border-t border-white/10 py-6 mt-auto">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <Logo size="small" />
+            <span className="text-soft-graphite text-sm">© 2024 AuraQ. All rights reserved.</span>
+          </div>
+        </div>
+      </footer>
       
       <CreateGoalModal />
       {selectedGoal && <GoalDetailModal />}
