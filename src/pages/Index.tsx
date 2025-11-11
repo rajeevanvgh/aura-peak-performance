@@ -469,19 +469,88 @@ export default function Index() {
 
   const Dashboard = () => {
     const activeGoals = goals.filter(g => g.status === 'active').length;
+    
+    // Calculate weekly activities
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const weekAgo = new Date(today);
+    weekAgo.setDate(weekAgo.getDate() - 7);
+    const twoWeeksAgo = new Date(today);
+    twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+    
     const completedThisWeek = activities.filter(a => {
       const actDate = new Date(a.date);
-      const weekAgo = new Date();
-      weekAgo.setDate(weekAgo.getDate() - 7);
-      return actDate >= weekAgo;
+      actDate.setHours(0, 0, 0, 0);
+      return actDate >= weekAgo && actDate <= today;
     }).length;
     
+    const completedLastWeek = activities.filter(a => {
+      const actDate = new Date(a.date);
+      actDate.setHours(0, 0, 0, 0);
+      return actDate >= twoWeeksAgo && actDate < weekAgo;
+    }).length;
+    
+    const weeklyActivityTrend = completedLastWeek > 0 
+      ? `${completedThisWeek > completedLastWeek ? '+' : ''}${Math.round(((completedThisWeek - completedLastWeek) / completedLastWeek) * 100)}% from last week`
+      : completedThisWeek > 0 
+        ? 'First week of activities!' 
+        : 'No activities yet';
+    
+    // Calculate current streak (consecutive days with activities)
+    const calculateStreak = () => {
+      if (activities.length === 0) return 0;
+      
+      // Get unique dates with activities, sorted descending
+      const activityDates = [...new Set(activities.map(a => {
+        const date = new Date(a.date);
+        date.setHours(0, 0, 0, 0);
+        return date.getTime();
+      }))].sort((a, b) => b - a);
+      
+      if (activityDates.length === 0) return 0;
+      
+      // Check if most recent activity was today or yesterday
+      const mostRecent = new Date(activityDates[0]);
+      const daysSinceLastActivity = Math.floor((today.getTime() - mostRecent.getTime()) / (1000 * 60 * 60 * 24));
+      
+      // If last activity was more than 1 day ago, streak is broken
+      if (daysSinceLastActivity > 1) return 0;
+      
+      // Count consecutive days
+      let streak = 1;
+      for (let i = 1; i < activityDates.length; i++) {
+        const currentDate = new Date(activityDates[i]);
+        const previousDate = new Date(activityDates[i - 1]);
+        const dayDiff = Math.floor((previousDate.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24));
+        
+        if (dayDiff === 1) {
+          streak++;
+        } else {
+          break;
+        }
+      }
+      
+      return streak;
+    };
+    
+    const currentStreak = calculateStreak();
+    const streakText = currentStreak === 0 ? '0 days' : `${currentStreak} ${currentStreak === 1 ? 'day' : 'days'}`;
+    const streakTrend = currentStreak > 0 
+      ? currentStreak >= 7 
+        ? 'Amazing streak! 🔥' 
+        : 'Keep it going!' 
+      : 'Start your streak today!';
+    
+    // Calculate weekly progress data
     const weeklyData = Array.from({length: 7}, (_, i) => {
       const date = new Date();
       date.setDate(date.getDate() - (6 - i));
-      const dayActivities = activities.filter(a => 
-        new Date(a.date).toDateString() === date.toDateString()
-      );
+      date.setHours(0, 0, 0, 0);
+      const dayActivities = activities.filter(a => {
+        const actDate = new Date(a.date);
+        actDate.setHours(0, 0, 0, 0);
+        return actDate.getTime() === date.getTime();
+      });
       return {
         day: date.toLocaleDateString('en-US', { weekday: 'short' }),
         value: dayActivities.reduce((sum, a) => sum + (a.value || 0), 0)
@@ -507,9 +576,9 @@ export default function Index() {
         </div>
 
         <div className="grid md:grid-cols-3 gap-6">
-          <StatCard icon={Target} label="Active Goals" value={activeGoals} trend="+2 this month" />
-          <StatCard icon={Activity} label="Weekly Activities" value={completedThisWeek} trend="+15% from last week" />
-          <StatCard icon={Trophy} label="Current Streak" value="12 days" trend="Personal best!" />
+          <StatCard icon={Target} label="Active Goals" value={activeGoals} />
+          <StatCard icon={Activity} label="Weekly Activities" value={completedThisWeek} trend={weeklyActivityTrend} />
+          <StatCard icon={Trophy} label="Current Streak" value={streakText} trend={streakTrend} />
         </div>
 
         <GlassCard>
