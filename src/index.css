@@ -8,10 +8,10 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    --background: 0 0% 7%;
+    --background: 0 0% 0%;
     --foreground: 0 0% 98%;
 
-    --card: 0 0% 7%;
+    --card: 0 0% 0%;
     --card-foreground: 0 0% 98%;
 
     --popover: 0 0% 7%;
@@ -38,7 +38,7 @@ All colors MUST be HSL.
 
     --radius: 1rem;
 
-    --deep-charcoal: 0 0% 7%;
+    --deep-charcoal: 0 0% 0%;
     --auro-gold: 43 100% 68%;
     --electric-blue: 211 100% 50%;
     --soft-graphite: 0 0% 66%;
