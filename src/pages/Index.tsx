@@ -13,6 +13,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { User as SupabaseUser, Session } from '@supabase/supabase-js';
 import { signUpSchema, signInSchema, goalSchema, activitySchema } from '@/lib/validations';
 import { useToast } from '@/hooks/use-toast';
+import { notifyGoalCreation } from '@/utils/notifyGoalCreation';
+import { toast as sonnerToast } from 'sonner';
 
 // Types
 interface User {
@@ -618,9 +620,13 @@ export default function Index() {
       startDate: new Date().toISOString().split('T')[0],
       endDate: ''
     });
+    const [emailNotify, setEmailNotify] = useState(true);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const handleSubmit = async () => {
       if (!user) return;
+      
+      setIsSubmitting(true);
       
       try {
         // Validate goal data
@@ -655,6 +661,7 @@ export default function Index() {
             title: 'Error',
             description: 'Failed to create goal'
           });
+          setIsSubmitting(false);
           return;
         }
         
@@ -674,6 +681,36 @@ export default function Index() {
           };
           
           setGoals([...goals, formattedGoal]);
+          
+          // Trigger notification
+          if (emailNotify) {
+            const result = await notifyGoalCreation(
+              {
+                id: newGoal.id,
+                title: validatedData.title,
+                type: validatedData.type,
+                targetValue: validatedData.targetValue,
+                unit: validatedData.unit,
+                startDate: validatedData.startDate,
+                endDate: validatedData.endDate
+              },
+              {
+                name: user.name,
+                email: user.email
+              },
+              true
+            );
+            
+            sonnerToast.success(
+              result.success 
+                ? '🎯 Goal created! Check your email for tips.' 
+                : '🎯 Goal created successfully!',
+              { duration: 4000 }
+            );
+          } else {
+            sonnerToast.success('🎯 Goal created!');
+          }
+          
           setShowModal(null);
           setGoalData({
             type: 'Distance',
@@ -683,27 +720,16 @@ export default function Index() {
             startDate: new Date().toISOString().split('T')[0],
             endDate: ''
           });
-          
-          toast({
-            title: 'Success',
-            description: 'Goal created successfully!'
-          });
         }
       } catch (error: any) {
         if (error.errors) {
           const firstError = error.errors[0];
-          toast({
-            variant: 'destructive',
-            title: 'Validation error',
-            description: firstError.message
-          });
+          sonnerToast.error(firstError.message);
         } else {
-          toast({
-            variant: 'destructive',
-            title: 'Error',
-            description: 'Failed to create goal'
-          });
+          sonnerToast.error('Failed to create goal');
         }
+      } finally {
+        setIsSubmitting(false);
       }
     };
 
@@ -776,11 +802,42 @@ export default function Index() {
             </div>
           </div>
           
+          <div className="mt-4">
+            <label className="flex items-start gap-3 p-4 rounded-lg cursor-pointer transition-all"
+                   style={{
+                     background: 'rgba(18, 18, 18, 0.5)',
+                     border: '1px solid rgba(169, 169, 169, 0.2)'
+                   }}>
+              <input
+                type="checkbox"
+                checked={emailNotify}
+                onChange={(e) => setEmailNotify(e.target.checked)}
+                className="mt-0.5 w-4 h-4 rounded focus:ring-2"
+                style={{ accentColor: '#FFC857' }}
+              />
+              <div className="flex-1">
+                <span className="text-white font-semibold text-sm">
+                  📧 Send me motivational emails
+                </span>
+                <p className="text-xs mt-1" style={{ color: '#A9A9A9' }}>
+                  Get AI-powered personalized tips when you create this goal
+                </p>
+              </div>
+            </label>
+          </div>
+          
           <Button 
             onClick={handleSubmit}
-            className="w-full justify-center bg-auro-gold text-deep-charcoal hover:bg-auro-gold/90"
+            disabled={isSubmitting}
+            className="w-full justify-center"
+            style={{
+              background: isSubmitting ? '#A9A9A9' : '#FFC857',
+              color: '#121212',
+              cursor: isSubmitting ? 'not-allowed' : 'pointer',
+              opacity: isSubmitting ? 0.6 : 1
+            }}
           >
-            Create Goal
+            {isSubmitting ? '⏳ Creating Goal...' : '🎯 Create Goal'}
           </Button>
         </div>
       </Modal>
