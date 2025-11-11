@@ -541,29 +541,19 @@ export default function Index() {
         : 'Keep it going!' 
       : 'Start your streak today!';
     
-    // Calculate weekly progress data - average percentage completion of all active goals
+    // Calculate weekly progress data
     const weeklyData = Array.from({length: 7}, (_, i) => {
       const date = new Date();
       date.setDate(date.getDate() - (6 - i));
       date.setHours(0, 0, 0, 0);
-      
-      const activeGoals = goals.filter(g => g.status === 'active');
-      
-      if (activeGoals.length === 0) {
-        return {
-          day: date.toLocaleDateString('en-US', { weekday: 'short' }),
-          value: 0
-        };
-      }
-      
-      const avgCompletion = activeGoals.reduce((sum, goal) => {
-        const progress = Math.min((goal.currentValue / goal.targetValue) * 100, 100);
-        return sum + progress;
-      }, 0) / activeGoals.length;
-      
+      const dayActivities = activities.filter(a => {
+        const actDate = new Date(a.date);
+        actDate.setHours(0, 0, 0, 0);
+        return actDate.getTime() === date.getTime();
+      });
       return {
         day: date.toLocaleDateString('en-US', { weekday: 'short' }),
-        value: Number(avgCompletion.toFixed(1))
+        value: Number(dayActivities.reduce((sum, a) => sum + (Number(a.value) || 0), 0).toFixed(2))
       };
     });
 
