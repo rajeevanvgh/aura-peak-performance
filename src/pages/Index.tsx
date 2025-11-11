@@ -744,8 +744,8 @@ export default function Index() {
       
       if (!goalData.endDate) {
         newErrors.endDate = 'End date is required';
-      } else if (new Date(goalData.endDate) <= new Date(goalData.startDate)) {
-        newErrors.endDate = 'End date must be after start date';
+      } else if (new Date(goalData.endDate) < new Date(goalData.startDate)) {
+        newErrors.endDate = 'End date cannot be before start date';
       }
       
       if (Object.keys(newErrors).length > 0) {
@@ -866,7 +866,7 @@ export default function Index() {
       goalData.targetValue && 
       parseFloat(goalData.targetValue) > 0 && 
       goalData.endDate && 
-      new Date(goalData.endDate) > new Date(goalData.startDate);
+      new Date(goalData.endDate) >= new Date(goalData.startDate);
 
     return (
       <Modal isOpen={showModal === 'newGoal'} onClose={() => setShowModal(null)} title="Create New Goal">
@@ -957,13 +957,7 @@ export default function Index() {
                   setGoalData({...goalData, endDate: date});
                   if (errors.endDate) setErrors(prev => ({ ...prev, endDate: '' }));
                 }}
-                minDate={goalData.startDate ? (() => {
-                  const start = new Date(goalData.startDate);
-                  const nextDay = new Date(start);
-                  nextDay.setDate(start.getDate() + 1);
-                  nextDay.setHours(0, 0, 0, 0);
-                  return nextDay;
-                })() : new Date()}
+                minDate={goalData.startDate ? new Date(goalData.startDate) : new Date()}
                 placeholder="Select end date"
                 error={!!errors.endDate}
               />
