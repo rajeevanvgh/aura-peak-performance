@@ -66,3 +66,202 @@ All colors MUST be HSL.
 }
 
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800&family=Inter:wght@400;500;600&family=Rajdhani:wght@500;600;700&display=swap');
+
+/* Native Date Input Styling - Dark Theme */
+input[type="date"] {
+  background: hsl(0 0% 10%);
+  color: hsl(0 0% 98%);
+  border: 1px solid hsl(0 0% 66%);
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+
+input[type="date"]:focus {
+  outline: none;
+  border-color: hsl(211 100% 50%);
+  box-shadow: 0 0 0 3px hsl(211 100% 50% / 0.1);
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(1) brightness(0.8);
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 0.25rem;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  filter: invert(0.7) sepia(1) saturate(5) hue-rotate(10deg);
+}
+
+input[type="date"]::-webkit-datetime-edit {
+  color: hsl(0 0% 98%);
+}
+
+input[type="date"]::-webkit-datetime-edit-text {
+  color: hsl(0 0% 66%);
+  padding: 0 0.25rem;
+}
+
+input[type="date"]::-webkit-datetime-edit-month-field,
+input[type="date"]::-webkit-datetime-edit-day-field,
+input[type="date"]::-webkit-datetime-edit-year-field {
+  color: hsl(0 0% 98%);
+}
+
+input[type="date"]::-webkit-datetime-edit-month-field:focus,
+input[type="date"]::-webkit-datetime-edit-day-field:focus,
+input[type="date"]::-webkit-datetime-edit-year-field:focus {
+  background: hsl(43 100% 68% / 0.2);
+  color: hsl(43 100% 68%);
+  outline: none;
+}
+
+/* React Day Picker Calendar Styling - Dark Theme */
+.rdp {
+  --rdp-cell-size: 40px;
+  --rdp-accent-color: hsl(43 100% 68%);
+  --rdp-background-color: hsl(0 0% 10%);
+  --rdp-outline: 2px solid hsl(211 100% 50%);
+  margin: 0;
+  background: hsl(0 0% 10%);
+  border-radius: 0.75rem;
+  padding: 1rem;
+}
+
+.rdp-months {
+  gap: 1rem;
+}
+
+.rdp-month {
+  background: hsl(0 0% 7%);
+  border-radius: 0.75rem;
+  padding: 1rem;
+  border: 1px solid hsl(0 0% 66% / 0.2);
+}
+
+.rdp-caption {
+  display: flex;
+  justify-content: center;
+  padding: 1rem;
+  position: relative;
+  align-items: center;
+}
+
+.rdp-caption_label {
+  color: hsl(0 0% 98%);
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.rdp-nav {
+  display: flex;
+  gap: 0.25rem;
+  align-items: center;
+}
+
+.rdp-nav_button {
+  width: 2rem;
+  height: 2rem;
+  color: hsl(43 100% 68%);
+  background: transparent;
+  border: 1px solid hsl(0 0% 20%);
+  border-radius: 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition-smooth);
+}
+
+.rdp-nav_button:hover:not(:disabled) {
+  color: hsl(211 100% 50%);
+  border-color: hsl(211 100% 50%);
+  opacity: 1;
+}
+
+.rdp-nav_button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.rdp-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 0.5rem;
+}
+
+.rdp-head_cell {
+  color: hsl(0 0% 66%);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  font-weight: 500;
+  padding: 0.5rem;
+}
+
+.rdp-cell {
+  text-align: center;
+  padding: 0.125rem;
+}
+
+.rdp-day {
+  width: 2.25rem;
+  height: 2.25rem;
+  color: hsl(0 0% 98%);
+  font-size: 0.875rem;
+  border-radius: 0.5rem;
+  transition: var(--transition-smooth);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.rdp-day:hover:not(.rdp-day_selected):not(.rdp-day_disabled) {
+  background: hsl(43 100% 68% / 0.15);
+  transform: scale(1.05);
+}
+
+.rdp-day_selected {
+  background: hsl(43 100% 68%) !important;
+  color: hsl(0 0% 7%) !important;
+  font-weight: 700;
+}
+
+.rdp-day_today:not(.rdp-day_selected) {
+  background: hsl(211 100% 50%);
+  color: hsl(0 0% 7%);
+  font-weight: 700;
+}
+
+.rdp-day_disabled {
+  color: hsl(0 0% 29%) !important;
+  opacity: 0.4;
+  cursor: not-allowed !important;
+}
+
+.rdp-day_outside {
+  color: hsl(0 0% 66%);
+  opacity: 0.5;
+}
+
+.rdp-day_range_middle {
+  background: hsl(43 100% 68% / 0.2);
+  color: hsl(0 0% 98%);
+}
+
+@media (max-width: 768px) {
+  .rdp {
+    max-width: 95vw;
+  }
+  
+  .rdp-day {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+  
+  .rdp-caption_label {
+    font-size: 1.125rem;
+  }
+}
