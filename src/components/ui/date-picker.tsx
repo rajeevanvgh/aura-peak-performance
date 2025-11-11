@@ -45,9 +45,9 @@ export function DatePicker({
         <Button
           variant="outline"
           className={cn(
-            "w-full justify-start text-left font-normal bg-[#121212] border rounded-xl px-4 py-3 h-auto hover:bg-[#1a1a1a]",
+            "w-full justify-start text-left font-normal bg-background border rounded-xl px-4 py-3 h-auto hover:bg-muted",
             !value && "text-soft-graphite",
-            error ? "border-[#FF4444]" : "border-[#A9A9A9] hover:border-electric-blue",
+            error ? "border-destructive" : "border-input hover:border-electric-blue",
             className
           )}
         >
@@ -55,7 +55,7 @@ export function DatePicker({
           {value ? format(new Date(value), "MMM dd, yyyy") : <span>{placeholder}</span>}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-0 bg-[#1a1a1a] border-[#A9A9A9]" align="start">
+      <PopoverContent className="w-auto p-0 bg-popover border-border" align="start">
         <Calendar
           mode="single"
           selected={selectedDate}
