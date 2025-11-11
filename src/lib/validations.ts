@@ -23,8 +23,8 @@ export const goalSchema = z.object({
   unit: z.string().trim().min(1, { message: 'Unit is required' }).max(20, { message: 'Unit must be less than 20 characters' }),
   startDate: z.string().refine(val => !isNaN(Date.parse(val)), { message: 'Invalid start date' }),
   endDate: z.string().refine(val => !isNaN(Date.parse(val)), { message: 'Invalid end date' })
-}).refine(data => new Date(data.endDate) > new Date(data.startDate), {
-  message: 'End date must be after start date',
+}).refine(data => new Date(data.endDate) >= new Date(data.startDate), {
+  message: 'End date cannot be before start date',
   path: ['endDate']
 });
 
