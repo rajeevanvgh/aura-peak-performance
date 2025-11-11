@@ -153,7 +153,7 @@ export default function Index() {
             goalId: a.goal_id,
             userId: a.user_id,
             date: a.date,
-            value: a.value,
+            value: Number(a.value),
             notes: a.notes
           }));
           setActivities(formattedActivities);
@@ -553,7 +553,7 @@ export default function Index() {
       });
       return {
         day: date.toLocaleDateString('en-US', { weekday: 'short' }),
-        value: dayActivities.reduce((sum, a) => sum + (a.value || 0), 0)
+        value: Number(dayActivities.reduce((sum, a) => sum + (Number(a.value) || 0), 0).toFixed(2))
       };
     });
 
