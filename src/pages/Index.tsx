@@ -10,6 +10,7 @@ import { ProgressRing } from '@/components/ProgressRing';
 import { ProgressBar } from '@/components/ProgressBar';
 import { Badge } from '@/components/ui/badge';
 import { Logo } from '@/components/Logo';
+import { DatePicker } from '@/components/ui/date-picker';
 import { supabase } from '@/integrations/supabase/client';
 import { User as SupabaseUser, Session } from '@supabase/supabase-js';
 import { signUpSchema, signInSchema, goalSchema, activitySchema } from '@/lib/validations';
@@ -872,27 +873,24 @@ export default function Index() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm text-soft-graphite mb-2">Start Date</label>
-              <input 
-                type="date" 
+              <DatePicker
                 value={goalData.startDate}
-                min={new Date().toISOString().split('T')[0]}
-                onChange={(e) => setGoalData({...goalData, startDate: e.target.value})}
-                className="w-full bg-[#121212] border border-[#A9A9A9] rounded-xl px-4 py-3 text-foreground focus:outline-none focus:border-electric-blue focus:ring-2 focus:ring-electric-blue/10 transition-colors [&::-webkit-calendar-picker-indicator]:invert [&::-webkit-calendar-picker-indicator]:cursor-pointer" 
+                onChange={(date) => setGoalData({...goalData, startDate: date})}
+                minDate={new Date()}
+                placeholder="Select start date"
               />
             </div>
             <div>
               <label className="block text-sm text-soft-graphite mb-2">End Date</label>
-              <input 
-                type="date" 
+              <DatePicker
                 value={goalData.endDate}
-                min={goalData.startDate ? new Date(new Date(goalData.startDate).getTime() + 86400000).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]}
-                onChange={(e) => {
-                  setGoalData({...goalData, endDate: e.target.value});
+                onChange={(date) => {
+                  setGoalData({...goalData, endDate: date});
                   if (errors.endDate) setErrors(prev => ({ ...prev, endDate: '' }));
                 }}
-                className={`w-full bg-[#121212] border rounded-xl px-4 py-3 text-foreground focus:outline-none transition-colors [&::-webkit-calendar-picker-indicator]:invert [&::-webkit-calendar-picker-indicator]:cursor-pointer ${
-                  errors.endDate ? 'border-[#FF4444] focus:border-[#FF4444]' : 'border-[#A9A9A9] focus:border-electric-blue focus:ring-2 focus:ring-electric-blue/10'
-                }`}
+                minDate={goalData.startDate ? new Date(new Date(goalData.startDate).getTime() + 86400000) : new Date()}
+                placeholder="Select end date"
+                error={!!errors.endDate}
               />
               {errors.endDate && (
                 <p className="text-[#FF4444] text-xs mt-1">⚠️ {errors.endDate}</p>
@@ -1180,12 +1178,11 @@ export default function Index() {
         <div className="space-y-4">
           <div>
             <label className="block text-sm text-soft-graphite mb-2">Date</label>
-            <input 
-              type="date" 
+            <DatePicker
               value={activityData.date}
-              max={new Date().toISOString().split('T')[0]}
-              onChange={(e) => setActivityData({...activityData, date: e.target.value})}
-              className="w-full bg-[#121212] border border-[#A9A9A9] rounded-xl px-4 py-3 text-foreground focus:outline-none focus:border-electric-blue focus:ring-2 focus:ring-electric-blue/10 transition-colors [&::-webkit-calendar-picker-indicator]:invert [&::-webkit-calendar-picker-indicator]:cursor-pointer" 
+              onChange={(date) => setActivityData({...activityData, date})}
+              maxDate={new Date()}
+              placeholder="Select activity date"
             />
           </div>
           
