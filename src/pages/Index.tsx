@@ -541,19 +541,44 @@ export default function Index() {
         : 'Keep it going!' 
       : 'Start your streak today!';
     
-    // Calculate weekly progress data
+    // Calculate weekly progress data - average percentage completion across active goals
     const weeklyData = Array.from({length: 7}, (_, i) => {
       const date = new Date();
       date.setDate(date.getDate() - (6 - i));
       date.setHours(0, 0, 0, 0);
+      
+      // Get activities for this day
       const dayActivities = activities.filter(a => {
         const actDate = new Date(a.date);
         actDate.setHours(0, 0, 0, 0);
         return actDate.getTime() === date.getTime();
       });
+      
+      // Calculate completion percentage for each active goal on this day
+      const activeGoalsData = goals
+        .filter(g => g.status === 'active')
+        .map(goal => {
+          // Calculate cumulative progress up to this day
+          const progressActivities = activities.filter(a => {
+            const actDate = new Date(a.date);
+            actDate.setHours(0, 0, 0, 0);
+            return actDate <= date && a.goalId === goal.id;
+          });
+          
+          const cumulativeValue = progressActivities.reduce((sum, a) => sum + Number(a.value), 0);
+          const completionPercentage = Math.min((cumulativeValue / goal.targetValue) * 100, 100);
+          
+          return completionPercentage;
+        });
+      
+      // Average completion percentage across all active goals
+      const avgCompletion = activeGoalsData.length > 0
+        ? Number((activeGoalsData.reduce((sum, pct) => sum + pct, 0) / activeGoalsData.length).toFixed(1))
+        : 0;
+      
       return {
         day: date.toLocaleDateString('en-US', { weekday: 'short' }),
-        value: Number(dayActivities.reduce((sum, a) => sum + (Number(a.value) || 0), 0).toFixed(2))
+        value: avgCompletion
       };
     });
 
@@ -583,18 +608,24 @@ export default function Index() {
 
         <GlassCard>
           <h2 className="text-2xl font-heading font-bold text-foreground mb-6">Weekly Progress</h2>
+          <p className="text-sm text-soft-graphite mb-4">Average completion % across all active goals</p>
           <ResponsiveContainer width="100%" height={250}>
             <LineChart data={weeklyData}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
               <XAxis dataKey="day" stroke="hsl(var(--soft-graphite))" />
-              <YAxis stroke="hsl(var(--soft-graphite))" />
+              <YAxis 
+                stroke="hsl(var(--soft-graphite))" 
+                domain={[0, 100]}
+                tickFormatter={(value) => `${value}%`}
+              />
               <Tooltip 
                 contentStyle={{ 
                   backgroundColor: 'hsl(var(--deep-charcoal))', 
                   border: '1px solid rgba(255,255,255,0.1)', 
                   borderRadius: '12px',
                   color: 'hsl(var(--foreground))'
-                }} 
+                }}
+                formatter={(value: number) => [`${value.toFixed(1)}%`, 'Completion']}
               />
               <Line 
                 type="monotone" 
