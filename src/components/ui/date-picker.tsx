@@ -61,8 +61,10 @@ export function DatePicker({
           selected={selectedDate}
           onSelect={handleSelect}
           disabled={(date) => {
-            if (minDate && date < minDate) return true;
-            if (maxDate && date > maxDate) return true;
+            const normalize = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+            const current = normalize(date);
+            if (minDate && current < normalize(minDate)) return true;
+            if (maxDate && current > normalize(maxDate)) return true;
             return false;
           }}
           initialFocus
