@@ -19,7 +19,7 @@ export const signInSchema = z.object({
 export const goalSchema = z.object({
   type: z.string().min(1, { message: 'Goal type is required' }),
   title: z.string().trim().min(1, { message: 'Title is required' }).max(100, { message: 'Title must be less than 100 characters' }),
-  targetValue: z.number().positive({ message: 'Target must be greater than 0' }).max(1000000, { message: 'Target value is too large' }),
+  targetValue: z.number().positive({ message: 'Target value must be greater than 0' }).max(1000000, { message: 'Target value is too large' }),
   unit: z.string().trim().min(1, { message: 'Unit is required' }).max(20, { message: 'Unit must be less than 20 characters' }),
   startDate: z.string().refine(val => !isNaN(Date.parse(val)), { message: 'Invalid start date' }),
   endDate: z.string().refine(val => !isNaN(Date.parse(val)), { message: 'Invalid end date' })
@@ -31,7 +31,7 @@ export const goalSchema = z.object({
 // Activity validation schema
 export const activitySchema = z.object({
   date: z.string().refine(val => !isNaN(Date.parse(val)), { message: 'Invalid date' }),
-  value: z.number().positive({ message: 'Value must be greater than 0' }).max(1000000, { message: 'Value is too large' }),
+  value: z.number().min(1, { message: 'Value must be at least 1' }).max(1000000, { message: 'Value is too large' }),
   notes: z.string().max(1000, { message: 'Notes must be less than 1000 characters' }).optional()
 });
 

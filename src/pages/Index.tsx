@@ -628,6 +628,13 @@ export default function Index() {
   };
 
   const CreateGoalModal = () => {
+    const unitOptions: Record<string, string[]> = {
+      Distance: ['km', 'miles', 'meters'],
+      Duration: ['hours', 'minutes', 'sessions'],
+      Frequency: ['times per week', 'reps', 'sessions per month'],
+      Weight: ['kg', 'lbs', 'pounds']
+    };
+
     const [goalData, setGoalData] = useState({
       type: 'Distance',
       title: '',
@@ -638,9 +645,43 @@ export default function Index() {
     });
     const [emailNotify, setEmailNotify] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [errors, setErrors] = useState<Record<string, string>>({});
+
+    // Auto-select unit when goal type changes
+    useEffect(() => {
+      if (goalData.type && unitOptions[goalData.type]) {
+        setGoalData(prev => ({ ...prev, unit: unitOptions[prev.type][0] }));
+      }
+    }, [goalData.type]);
 
     const handleSubmit = async () => {
       if (!user) return;
+      
+      // Clear previous errors
+      setErrors({});
+      
+      // Client-side validation
+      const newErrors: Record<string, string> = {};
+      
+      if (!goalData.title.trim()) {
+        newErrors.title = 'Title is required';
+      }
+      
+      const targetValue = parseFloat(goalData.targetValue);
+      if (!goalData.targetValue || isNaN(targetValue) || targetValue <= 0) {
+        newErrors.targetValue = 'Target value must be greater than 0';
+      }
+      
+      if (!goalData.endDate) {
+        newErrors.endDate = 'End date is required';
+      } else if (new Date(goalData.endDate) <= new Date(goalData.startDate)) {
+        newErrors.endDate = 'End date must be after start date';
+      }
+      
+      if (Object.keys(newErrors).length > 0) {
+        setErrors(newErrors);
+        return;
+      }
       
       setIsSubmitting(true);
       
@@ -736,6 +777,7 @@ export default function Index() {
             startDate: new Date().toISOString().split('T')[0],
             endDate: ''
           });
+          setErrors({});
         }
       } catch (error: any) {
         if (error.errors) {
@@ -748,6 +790,13 @@ export default function Index() {
         setIsSubmitting(false);
       }
     };
+
+    const isFormValid = 
+      goalData.title.trim() && 
+      goalData.targetValue && 
+      parseFloat(goalData.targetValue) > 0 && 
+      goalData.endDate && 
+      new Date(goalData.endDate) > new Date(goalData.startDate);
 
     return (
       <Modal isOpen={showModal === 'newGoal'} onClose={() => setShowModal(null)} title="Create New Goal">
@@ -770,10 +819,18 @@ export default function Index() {
             <label className="block text-sm text-soft-graphite mb-2">Goal Title</label>
             <input 
               value={goalData.title} 
-              onChange={(e) => setGoalData({...goalData, title: e.target.value})} 
+              onChange={(e) => {
+                setGoalData({...goalData, title: e.target.value});
+                if (errors.title) setErrors(prev => ({ ...prev, title: '' }));
+              }}
               placeholder="e.g., Run 100km this month" 
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-foreground placeholder-soft-graphite focus:outline-none focus:border-electric-blue transition-colors" 
+              className={`w-full bg-white/5 border rounded-xl px-4 py-3 text-foreground placeholder-soft-graphite focus:outline-none transition-colors ${
+                errors.title ? 'border-[#FF4444] focus:border-[#FF4444]' : 'border-white/10 focus:border-electric-blue'
+              }`}
             />
+            {errors.title && (
+              <p className="text-[#FF4444] text-xs mt-1">⚠️ {errors.title}</p>
+            )}
           </div>
           
           <div className="grid grid-cols-2 gap-4">
@@ -781,19 +838,34 @@ export default function Index() {
               <label className="block text-sm text-soft-graphite mb-2">Target Value</label>
               <input 
                 type="number" 
+                min="0.01"
+                step="0.01"
                 value={goalData.targetValue} 
-                onChange={(e) => setGoalData({...goalData, targetValue: e.target.value})} 
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-foreground focus:outline-none focus:border-electric-blue transition-colors" 
+                onChange={(e) => {
+                  setGoalData({...goalData, targetValue: e.target.value});
+                  if (errors.targetValue) setErrors(prev => ({ ...prev, targetValue: '' }));
+                }}
+                className={`w-full bg-white/5 border rounded-xl px-4 py-3 text-foreground focus:outline-none transition-colors ${
+                  errors.targetValue ? 'border-[#FF4444] focus:border-[#FF4444]' : 'border-white/10 focus:border-electric-blue'
+                }`}
               />
+              {errors.targetValue && (
+                <p className="text-[#FF4444] text-xs mt-1">⚠️ {errors.targetValue}</p>
+              )}
             </div>
             <div>
               <label className="block text-sm text-soft-graphite mb-2">Unit</label>
-              <input 
+              <select 
                 value={goalData.unit} 
-                onChange={(e) => setGoalData({...goalData, unit: e.target.value})} 
-                placeholder="km, hours, reps" 
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-foreground placeholder-soft-graphite focus:outline-none focus:border-electric-blue transition-colors" 
-              />
+                onChange={(e) => setGoalData({...goalData, unit: e.target.value})}
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-foreground focus:outline-none focus:border-electric-blue transition-colors [&>option]:bg-deep-charcoal [&>option]:text-foreground cursor-pointer"
+              >
+                {unitOptions[goalData.type]?.map(unit => (
+                  <option key={unit} value={unit} className="bg-deep-charcoal text-foreground">
+                    {unit}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
           
@@ -802,19 +874,29 @@ export default function Index() {
               <label className="block text-sm text-soft-graphite mb-2">Start Date</label>
               <input 
                 type="date" 
-                value={goalData.startDate} 
-                onChange={(e) => setGoalData({...goalData, startDate: e.target.value})} 
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-foreground focus:outline-none focus:border-electric-blue transition-colors" 
+                value={goalData.startDate}
+                min={new Date().toISOString().split('T')[0]}
+                onChange={(e) => setGoalData({...goalData, startDate: e.target.value})}
+                className="w-full bg-[#121212] border border-[#A9A9A9] rounded-xl px-4 py-3 text-foreground focus:outline-none focus:border-electric-blue focus:ring-2 focus:ring-electric-blue/10 transition-colors [&::-webkit-calendar-picker-indicator]:invert [&::-webkit-calendar-picker-indicator]:cursor-pointer" 
               />
             </div>
             <div>
               <label className="block text-sm text-soft-graphite mb-2">End Date</label>
               <input 
                 type="date" 
-                value={goalData.endDate} 
-                onChange={(e) => setGoalData({...goalData, endDate: e.target.value})} 
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-foreground focus:outline-none focus:border-electric-blue transition-colors" 
+                value={goalData.endDate}
+                min={goalData.startDate ? new Date(new Date(goalData.startDate).getTime() + 86400000).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]}
+                onChange={(e) => {
+                  setGoalData({...goalData, endDate: e.target.value});
+                  if (errors.endDate) setErrors(prev => ({ ...prev, endDate: '' }));
+                }}
+                className={`w-full bg-[#121212] border rounded-xl px-4 py-3 text-foreground focus:outline-none transition-colors [&::-webkit-calendar-picker-indicator]:invert [&::-webkit-calendar-picker-indicator]:cursor-pointer ${
+                  errors.endDate ? 'border-[#FF4444] focus:border-[#FF4444]' : 'border-[#A9A9A9] focus:border-electric-blue focus:ring-2 focus:ring-electric-blue/10'
+                }`}
               />
+              {errors.endDate && (
+                <p className="text-[#FF4444] text-xs mt-1">⚠️ {errors.endDate}</p>
+              )}
             </div>
           </div>
           
@@ -844,13 +926,13 @@ export default function Index() {
           
           <Button 
             onClick={handleSubmit}
-            disabled={isSubmitting}
+            disabled={isSubmitting || !isFormValid}
             className="w-full justify-center"
             style={{
-              background: isSubmitting ? '#A9A9A9' : '#FFC857',
+              background: (isSubmitting || !isFormValid) ? '#A9A9A9' : '#FFC857',
               color: '#121212',
-              cursor: isSubmitting ? 'not-allowed' : 'pointer',
-              opacity: isSubmitting ? 0.6 : 1
+              cursor: (isSubmitting || !isFormValid) ? 'not-allowed' : 'pointer',
+              opacity: (isSubmitting || !isFormValid) ? 0.5 : 1
             }}
           >
             {isSubmitting ? '⏳ Creating Goal...' : '🎯 Create Goal'}
@@ -973,9 +1055,26 @@ export default function Index() {
       value: '',
       notes: ''
     });
+    const [errors, setErrors] = useState<Record<string, string>>({});
 
     const handleSubmit = async () => {
       if (!selectedGoal || !user) return;
+      
+      // Clear previous errors
+      setErrors({});
+      
+      // Client-side validation
+      const newErrors: Record<string, string> = {};
+      
+      const value = parseFloat(activityData.value);
+      if (!activityData.value || isNaN(value) || value < 1) {
+        newErrors.value = 'Value must be at least 1';
+      }
+      
+      if (Object.keys(newErrors).length > 0) {
+        setErrors(newErrors);
+        return;
+      }
       
       try {
         // Validate activity data
@@ -1049,6 +1148,7 @@ export default function Index() {
           
           setShowModal('goalDetail');
           setActivityData({ date: new Date().toISOString().split('T')[0], value: '', notes: '' });
+          setErrors({});
           
           toast({
             title: 'Success',
@@ -1073,6 +1173,8 @@ export default function Index() {
       }
     };
 
+    const isFormValid = activityData.value && parseFloat(activityData.value) >= 1;
+
     return (
       <Modal isOpen={showModal === 'logActivity'} onClose={() => setShowModal('goalDetail')} title="Log Activity">
         <div className="space-y-4">
@@ -1080,9 +1182,10 @@ export default function Index() {
             <label className="block text-sm text-soft-graphite mb-2">Date</label>
             <input 
               type="date" 
-              value={activityData.date} 
-              onChange={(e) => setActivityData({...activityData, date: e.target.value})} 
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-foreground focus:outline-none focus:border-electric-blue transition-colors" 
+              value={activityData.date}
+              max={new Date().toISOString().split('T')[0]}
+              onChange={(e) => setActivityData({...activityData, date: e.target.value})}
+              className="w-full bg-[#121212] border border-[#A9A9A9] rounded-xl px-4 py-3 text-foreground focus:outline-none focus:border-electric-blue focus:ring-2 focus:ring-electric-blue/10 transition-colors [&::-webkit-calendar-picker-indicator]:invert [&::-webkit-calendar-picker-indicator]:cursor-pointer" 
             />
           </div>
           
@@ -1090,11 +1193,22 @@ export default function Index() {
             <label className="block text-sm text-soft-graphite mb-2">Value ({selectedGoal?.unit})</label>
             <input 
               type="number" 
+              min="1"
+              step="0.1"
               value={activityData.value} 
-              onChange={(e) => setActivityData({...activityData, value: e.target.value})} 
+              onChange={(e) => {
+                const value = Math.max(1, parseFloat(e.target.value) || 0);
+                setActivityData({...activityData, value: value.toString()});
+                if (errors.value) setErrors(prev => ({ ...prev, value: '' }));
+              }}
               placeholder={`Enter ${selectedGoal?.unit}`} 
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-foreground placeholder-soft-graphite focus:outline-none focus:border-electric-blue transition-colors" 
+              className={`w-full bg-white/5 border rounded-xl px-4 py-3 text-foreground placeholder-soft-graphite focus:outline-none transition-colors ${
+                errors.value ? 'border-[#FF4444] focus:border-[#FF4444]' : 'border-white/10 focus:border-electric-blue'
+              }`}
             />
+            {errors.value && (
+              <p className="text-[#FF4444] text-xs mt-1">⚠️ {errors.value}</p>
+            )}
           </div>
           
           <div>
@@ -1110,7 +1224,14 @@ export default function Index() {
           
           <Button 
             onClick={handleSubmit}
-            className="w-full justify-center bg-auro-gold text-deep-charcoal hover:bg-auro-gold/90"
+            disabled={!isFormValid}
+            className="w-full justify-center"
+            style={{
+              background: !isFormValid ? '#A9A9A9' : '#FFC857',
+              color: '#121212',
+              cursor: !isFormValid ? 'not-allowed' : 'pointer',
+              opacity: !isFormValid ? 0.5 : 1
+            }}
           >
             Save Activity
           </Button>
