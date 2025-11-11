@@ -14,7 +14,7 @@ export const Logo = ({ size = 'medium', className = '', animate = false }: LogoP
 
   return (
     <img
-      src="/logo.png"
+      src="/logo-new.png"
       alt="AuraQ - Fitness Tracker"
       className={`w-auto object-contain transition-all duration-300 hover:scale-105 ${sizes[size]} ${animate ? 'animate-pulse-slow' : ''} ${className}`}
     />
