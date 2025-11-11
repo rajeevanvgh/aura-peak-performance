@@ -1,13 +1,11 @@
-import { WEBHOOK_CONFIG } from '@/config/webhook';
+import { supabase } from '@/integrations/supabase/client';
 
 export const notifyGoalCreation = async (goalData, userData, enabled = true) => {
   if (!enabled) return { success: true };
 
   try {
-    const response = await fetch(WEBHOOK_CONFIG.url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+    const { data, error } = await supabase.functions.invoke('notify-goal', {
+      body: {
         userName: userData.name || userData.displayName || userData.email.split('@')[0],
         userEmail: userData.email,
         goalTitle: goalData.title,
@@ -18,11 +16,15 @@ export const notifyGoalCreation = async (goalData, userData, enabled = true) => 
         endDate: goalData.endDate,
         createdAt: new Date().toISOString(),
         goalId: goalData.id
-      })
+      }
     });
 
-    if (!response.ok) throw new Error('Webhook failed');
-    return { success: true };
+    if (error) {
+      console.error('Notification error:', error);
+      return { success: false };
+    }
+
+    return data || { success: true };
   } catch (error) {
     console.error('Notification error:', error);
     return { success: false };
