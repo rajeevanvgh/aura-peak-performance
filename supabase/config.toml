@@ -2,3 +2,6 @@ project_id = "dowwgiiqwfxfvnnwurxq"
 
 [functions.notify-goal]
 verify_jwt = true
+
+[functions.notify-goal-completion]
+verify_jwt = true

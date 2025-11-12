@@ -16,7 +16,9 @@ import { User as SupabaseUser, Session } from '@supabase/supabase-js';
 import { signUpSchema, signInSchema, goalSchema, activitySchema } from '@/lib/validations';
 import { useToast } from '@/hooks/use-toast';
 import { notifyGoalCreation } from '@/utils/notifyGoalCreation';
+import { notifyGoalCompletion } from '@/utils/notifyGoalCompletion';
 import { toast as sonnerToast } from 'sonner';
+import confetti from 'canvas-confetti';
 
 // Types
 interface User {
@@ -659,12 +661,18 @@ export default function Index() {
                   <GlassCard 
                     key={goal.id} 
                     hover 
-                    className="cursor-pointer" 
+                    className={`cursor-pointer relative ${goal.status === 'completed' ? 'ring-2 ring-auro-gold/50 shadow-[0_0_20px_rgba(255,200,87,0.3)]' : ''}`}
                     onClick={() => {
                       setSelectedGoal(goal);
                       setShowModal('goalDetail');
                     }}
                   >
+                    {goal.status === 'completed' && (
+                      <div className="absolute top-3 right-3 z-10 bg-auro-gold text-deep-charcoal px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 shadow-lg">
+                        <Trophy size={14} />
+                        <span>Completed</span>
+                      </div>
+                    )}
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex-1">
                         <h3 className="text-xl font-heading font-bold text-foreground mb-2">{goal.title}</h3>
@@ -1056,6 +1064,16 @@ export default function Index() {
         title={selectedGoal.title}
       >
         <div className="space-y-6">
+          {selectedGoal.status === 'completed' && (
+            <div className="bg-auro-gold/10 border border-auro-gold/30 rounded-xl p-4 flex items-center gap-3">
+              <Trophy className="text-auro-gold" size={24} />
+              <div>
+                <div className="text-auro-gold font-bold">Goal Completed! 🎉</div>
+                <div className="text-sm text-soft-graphite">Congratulations on achieving your target!</div>
+              </div>
+            </div>
+          )}
+          
           <div className="flex items-center justify-between">
             <ProgressRing progress={progress} size={120} />
             <div className="text-right">
@@ -1074,10 +1092,11 @@ export default function Index() {
           <div className="flex gap-3">
             <Button 
               onClick={() => setShowModal('logActivity')}
-              className="flex-1 justify-center gap-2 bg-auro-gold text-deep-charcoal hover:bg-auro-gold/90"
+              disabled={selectedGoal.status === 'completed'}
+              className="flex-1 justify-center gap-2 bg-auro-gold text-deep-charcoal hover:bg-auro-gold/90 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Plus size={20} />
-              Log Activity
+              {selectedGoal.status === 'completed' ? 'Goal Completed' : 'Log Activity'}
             </Button>
             <Button 
               variant="ghost" 
@@ -1206,9 +1225,17 @@ export default function Index() {
         
         // Update goal current_value
         const newCurrentValue = selectedGoal.currentValue + validatedData.value;
+        
+        // Check if goal is now completed
+        const isCompleted = newCurrentValue >= selectedGoal.targetValue;
+        const newStatus = isCompleted && selectedGoal.status !== 'completed' ? 'completed' : selectedGoal.status;
+        
         const { error: updateError } = await supabase
           .from('goals')
-          .update({ current_value: newCurrentValue })
+          .update({ 
+            current_value: newCurrentValue,
+            status: newStatus
+          })
           .eq('id', selectedGoal.id);
         
         if (updateError) {
@@ -1235,14 +1262,71 @@ export default function Index() {
           // Update local goals state
           const updatedGoals = goals.map(g => {
             if (g.id === selectedGoal.id) {
-              return { ...g, currentValue: newCurrentValue };
+              return { ...g, currentValue: newCurrentValue, status: newStatus };
             }
             return g;
           });
           setGoals(updatedGoals);
           
           // Update selectedGoal for the modal
-          setSelectedGoal({ ...selectedGoal, currentValue: newCurrentValue });
+          setSelectedGoal({ ...selectedGoal, currentValue: newCurrentValue, status: newStatus });
+          
+          // Handle goal completion
+          if (isCompleted && selectedGoal.status !== 'completed') {
+            // Celebration confetti
+            confetti({
+              particleCount: 100,
+              spread: 70,
+              origin: { y: 0.6 },
+              colors: ['#FFC857', '#00B4FF', '#FFFFFF']
+            });
+            
+            setTimeout(() => {
+              confetti({
+                particleCount: 50,
+                angle: 60,
+                spread: 55,
+                origin: { x: 0 },
+                colors: ['#FFC857', '#00B4FF']
+              });
+            }, 250);
+            
+            setTimeout(() => {
+              confetti({
+                particleCount: 50,
+                angle: 120,
+                spread: 55,
+                origin: { x: 1 },
+                colors: ['#FFC857', '#00B4FF']
+              });
+            }, 400);
+            
+            // Get total activities for this goal
+            const goalActivities = activities.filter(a => a.goalId === selectedGoal.id).length + 1; // +1 for current activity
+            
+            // Send completion notification
+            if (user) {
+              notifyGoalCompletion(
+                { ...selectedGoal, currentValue: newCurrentValue },
+                user,
+                goalActivities
+              ).then(result => {
+                if (result.success) {
+                  sonnerToast.success('🎉 Goal Completed! Check your email for a special message!', {
+                    duration: 6000,
+                    description: `Congratulations on completing "${selectedGoal.title}"!`
+                  });
+                } else {
+                  sonnerToast.success('🎉 Goal Completed!', {
+                    duration: 5000,
+                    description: `Amazing work on "${selectedGoal.title}"!`
+                  });
+                }
+              });
+            }
+          } else {
+            sonnerToast.success('Activity logged successfully!');
+          }
           
           setShowModal('goalDetail');
           setActivityData({ date: new Date().toISOString().split('T')[0], value: '', notes: '' });
