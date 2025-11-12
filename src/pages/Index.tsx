@@ -1148,66 +1148,14 @@ export default function Index() {
             ) : (
               <div className="space-y-3">
                 {goalActivities.slice(-5).reverse().map(activity => (
-                  <div key={activity.id} className="bg-white/5 rounded-xl p-4 flex items-center justify-between gap-4">
-                    <div className="flex-1">
+                  <div key={activity.id} className="bg-white/5 rounded-xl p-4 flex items-center justify-between">
+                    <div>
                       <div className="text-foreground font-bold">{activity.value} {selectedGoal.unit}</div>
                       <div className="text-sm text-soft-graphite">{formatDate(activity.date)}</div>
-                      {activity.notes && (
-                        <div className="text-sm text-soft-graphite mt-1">{activity.notes}</div>
-                      )}
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-soft-graphite hover:text-[#FF4444] transition-colors p-2"
-                      onClick={async (e) => {
-                        e.stopPropagation();
-                        try {
-                          // Delete activity from database
-                          const { error } = await supabase
-                            .from('activities')
-                            .delete()
-                            .eq('id', activity.id);
-                          
-                          if (error) {
-                            sonnerToast.error('Failed to delete activity');
-                            return;
-                          }
-                          
-                          // Update local activities state
-                          setActivities(prev => prev.filter(a => a.id !== activity.id));
-                          
-                          // Update goal's current value
-                          const newCurrentValue = selectedGoal.currentValue - activity.value;
-                          const { error: goalError } = await supabase
-                            .from('goals')
-                            .update({ current_value: newCurrentValue })
-                            .eq('id', selectedGoal.id);
-                          
-                          if (!goalError) {
-                            // Update goals state
-                            setGoals(prev => prev.map(g => 
-                              g.id === selectedGoal.id 
-                                ? { ...g, currentValue: newCurrentValue, status: newCurrentValue >= g.targetValue ? 'completed' : 'active' }
-                                : g
-                            ));
-                            
-                            // Update selected goal
-                            setSelectedGoal(prev => prev ? { 
-                              ...prev, 
-                              currentValue: newCurrentValue,
-                              status: newCurrentValue >= prev.targetValue ? 'completed' : 'active'
-                            } : null);
-                          }
-                          
-                          sonnerToast.success('Activity deleted');
-                        } catch (error) {
-                          sonnerToast.error('Failed to delete activity');
-                        }
-                      }}
-                    >
-                      <Trash2 size={16} />
-                    </Button>
+                    {activity.notes && (
+                      <div className="text-sm text-soft-graphite max-w-xs truncate">{activity.notes}</div>
+                    )}
                   </div>
                 ))}
               </div>
