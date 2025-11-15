@@ -5,6 +5,3 @@ verify_jwt = true
 
 [functions.notify-goal-completion]
 verify_jwt = true
-
-[functions.voice-consultation]
-verify_jwt = false

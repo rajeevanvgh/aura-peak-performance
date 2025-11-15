@@ -1,7 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
+import Vapi from '@vapi-ai/web';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
-import { RealtimeChat } from '@/utils/RealtimeAudio';
 
 interface VoiceConsultationProps {
   isOpen: boolean;
@@ -15,85 +14,115 @@ interface TranscriptMessage {
 }
 
 const VoiceConsultation = ({ isOpen, onClose }: VoiceConsultationProps) => {
+  const [vapi, setVapi] = useState<Vapi | null>(null);
   const [isCallActive, setIsCallActive] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [transcript, setTranscript] = useState<TranscriptMessage[]>([]);
-  const [isConnecting, setIsConnecting] = useState(false);
-  
-  const chatRef = useRef<RealtimeChat | null>(null);
 
   useEffect(() => {
+    const vapiInstance = new Vapi('0e533ffc-4b5d-4557-825c-8718a91ea93a');
+    setVapi(vapiInstance);
+
+    vapiInstance.on('call-start', () => setIsCallActive(true));
+    vapiInstance.on('call-end', () => {
+      setIsCallActive(false);
+      setIsSpeaking(false);
+    });
+    vapiInstance.on('speech-start', () => setIsSpeaking(true));
+    vapiInstance.on('speech-end', () => setIsSpeaking(false));
+    vapiInstance.on('message', (message: any) => {
+      if (message.type === 'transcript') {
+        setTranscript(prev => [...prev, {
+          role: message.role,
+          text: message.transcript,
+          timestamp: new Date()
+        }]);
+      }
+    });
+
     return () => {
-      chatRef.current?.disconnect();
+      vapiInstance.stop();
     };
   }, []);
 
-  const handleMessage = (event: any) => {
-    console.log('Received message:', event);
-    
-    if (event.type === 'response.audio_transcript.delta') {
-      setTranscript(prev => {
-        const last = prev[prev.length - 1];
-        if (last?.role === 'assistant') {
-          return prev.map((msg, i) => 
-            i === prev.length - 1 
-              ? { ...msg, text: msg.text + event.delta }
-              : msg
-          );
-        }
-        return [...prev, {
-          role: 'assistant',
-          text: event.delta,
-          timestamp: new Date()
-        }];
-      });
-    } else if (event.type === 'conversation.item.input_audio_transcription.completed') {
-      setTranscript(prev => [...prev, {
-        role: 'user',
-        text: event.transcript,
-        timestamp: new Date()
-      }]);
-    } else if (event.type === 'response.audio.delta') {
-      setIsSpeaking(true);
-    } else if (event.type === 'response.audio.done') {
-      setIsSpeaking(false);
-    } else if (event.type === 'error') {
-      console.error('Error:', event.error);
-      toast.error(event.error.message || 'An error occurred');
-    }
-  };
-
   const startCall = async () => {
-    setIsConnecting(true);
-    
-    try {
-      // Get ephemeral token from edge function
-      const { data, error } = await supabase.functions.invoke('voice-consultation');
-      
-      if (error) {
-        throw new Error(error.message);
-      }
+    if (!vapi) {
+      toast.error('Voice service not available');
+      return;
+    }
 
-      // Initialize WebRTC chat
-      chatRef.current = new RealtimeChat(handleMessage);
-      await chatRef.current.init({ data });
-      
-      setIsCallActive(true);
-      setIsConnecting(false);
-      toast.success('Connected to wellness coach');
-      
+    try {
+      await vapi.start({
+        name: 'AuraQ Wellness Coach',
+        model: {
+          provider: 'openai',
+          model: 'gpt-4o-mini',
+          messages: [{
+            role: 'system',
+            content: `You are AuraQ's AI Wellness Coach - compassionate, knowledgeable about fitness and mental health.
+
+YOUR ROLE:
+- Help people new to fitness or struggling with motivation
+- Provide guidance for PHYSICAL fitness AND MENTAL wellness
+- Listen empathetically to concerns about lethargy, depression, anxiety
+- Suggest appropriate fitness goals based on their situation
+- Encourage signup to track progress
+
+APPROACH:
+1. Warm greeting, ask how you can help
+2. Listen to their concern (fitness OR mental wellness)
+3. Ask clarifying questions
+4. Provide practical, actionable advice
+5. Suggest a specific goal they could start with
+6. Encourage signup to AuraQ
+
+PHYSICAL FITNESS TOPICS:
+- Beginner workout guidance
+- Goal setting (running, strength, weight loss)
+- Exercise recommendations
+- Building sustainable habits
+
+MENTAL WELLNESS TOPICS:
+- Lack of motivation and energy
+- Feeling lethargic or tired
+- Depression and workout anxiety
+- Stress management through fitness
+- Building confidence
+- Overcoming mental barriers to exercise
+
+GUIDELINES:
+- Be warm, empathetic, non-judgmental
+- Keep responses under 45 seconds
+- For serious mental health issues, acknowledge but suggest professional help
+- Always end with encouragement
+- Be specific with recommendations (e.g., "Start with 2km walk 3x/week")
+- Suggest signing up to track their journey
+
+RESPONSE STYLE:
+- Compassionate and understanding
+- Evidence-based advice
+- Action-oriented
+- Motivating but realistic
+- Professional yet friendly
+
+Remember: Guide them toward their first fitness goal and encourage AuraQ signup!`
+          }],
+          temperature: 0.8
+        },
+        voice: {
+          provider: '11labs',
+          voiceId: 'rachel'
+        },
+        firstMessage: "Hey there! I'm your AuraQ wellness coach. Whether you're looking to start a fitness journey or need support with motivation and mental wellness, I'm here to help. What's on your mind today?"
+      });
     } catch (error) {
       console.error('Error starting call:', error);
-      toast.error(error instanceof Error ? error.message : 'Could not start call');
-      setIsConnecting(false);
+      toast.error('Could not start call. Please try again.');
     }
   };
 
   const endCall = () => {
-    chatRef.current?.disconnect();
-    setIsCallActive(false);
-    setIsSpeaking(false);
-    setTranscript([]);
+    if (vapi) vapi.stop();
   };
 
   if (!isOpen) return null;
@@ -124,7 +153,7 @@ const VoiceConsultation = ({ isOpen, onClose }: VoiceConsultationProps) => {
 
         {/* Content */}
         <div className="p-8">
-          {!isCallActive && !isConnecting ? (
+          {!isCallActive ? (
             // Start Screen
             <div className="text-center">
               <div className="w-32 h-32 mx-auto rounded-full bg-auro-gold/20 flex items-center justify-center mb-6">
@@ -160,17 +189,6 @@ const VoiceConsultation = ({ isOpen, onClose }: VoiceConsultationProps) => {
               <p className="text-soft-graphite text-xs">
                 Your microphone will be accessed for this call
               </p>
-            </div>
-          ) : isConnecting ? (
-            <div className="text-center">
-              <div className="w-32 h-32 mx-auto rounded-full bg-auro-gold/20 flex items-center justify-center mb-6 animate-pulse">
-                <svg className="w-16 h-16 text-auro-gold" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
-                  <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
-                </svg>
-              </div>
-              <h3 className="text-white text-xl font-semibold mb-2">Connecting...</h3>
-              <p className="text-soft-graphite text-sm">Setting up your wellness consultation</p>
             </div>
           ) : (
             // Active Call Screen
