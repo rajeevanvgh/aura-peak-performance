@@ -1,5 +1,4 @@
-import { useState, useEffect } from 'react';
-import Vapi from '@vapi-ai/web';
+import { useState, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 
 interface VoiceConsultationProps {
@@ -13,116 +12,280 @@ interface TranscriptMessage {
   timestamp: Date;
 }
 
-const VoiceConsultation = ({ isOpen, onClose }: VoiceConsultationProps) => {
-  const [vapi, setVapi] = useState<Vapi | null>(null);
-  const [isCallActive, setIsCallActive] = useState(false);
-  const [isSpeaking, setIsSpeaking] = useState(false);
-  const [transcript, setTranscript] = useState<TranscriptMessage[]>([]);
+// Audio utilities
+const encodeAudioForAPI = (float32Array: Float32Array): string => {
+  const int16Array = new Int16Array(float32Array.length);
+  for (let i = 0; i < float32Array.length; i++) {
+    const s = Math.max(-1, Math.min(1, float32Array[i]));
+    int16Array[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+  }
+  const uint8Array = new Uint8Array(int16Array.buffer);
+  let binary = '';
+  const chunkSize = 0x8000;
+  
+  for (let i = 0; i < uint8Array.length; i += chunkSize) {
+    const chunk = uint8Array.subarray(i, Math.min(i + chunkSize, uint8Array.length));
+    binary += String.fromCharCode.apply(null, Array.from(chunk));
+  }
+  
+  return btoa(binary);
+};
 
-  useEffect(() => {
-    const vapiInstance = new Vapi('0e533ffc-4b5d-4557-825c-8718a91ea93a');
-    setVapi(vapiInstance);
+const createWavFromPCM = (pcmData: Uint8Array): Uint8Array => {
+  const int16Data = new Int16Array(pcmData.length / 2);
+  for (let i = 0; i < pcmData.length; i += 2) {
+    int16Data[i / 2] = (pcmData[i + 1] << 8) | pcmData[i];
+  }
+  
+  const wavHeader = new ArrayBuffer(44);
+  const view = new DataView(wavHeader);
+  
+  const writeString = (view: DataView, offset: number, string: string) => {
+    for (let i = 0; i < string.length; i++) {
+      view.setUint8(offset + i, string.charCodeAt(i));
+    }
+  };
 
-    vapiInstance.on('call-start', () => setIsCallActive(true));
-    vapiInstance.on('call-end', () => {
-      setIsCallActive(false);
-      setIsSpeaking(false);
-    });
-    vapiInstance.on('speech-start', () => setIsSpeaking(true));
-    vapiInstance.on('speech-end', () => setIsSpeaking(false));
-    vapiInstance.on('message', (message: any) => {
-      if (message.type === 'transcript') {
-        setTranscript(prev => [...prev, {
-          role: message.role,
-          text: message.transcript,
-          timestamp: new Date()
-        }]);
-      }
-    });
+  const sampleRate = 24000;
+  const numChannels = 1;
+  const bitsPerSample = 16;
+  const blockAlign = (numChannels * bitsPerSample) / 8;
+  const byteRate = sampleRate * blockAlign;
 
-    return () => {
-      vapiInstance.stop();
-    };
-  }, []);
+  writeString(view, 0, 'RIFF');
+  view.setUint32(4, 36 + int16Data.byteLength, true);
+  writeString(view, 8, 'WAVE');
+  writeString(view, 12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, numChannels, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, byteRate, true);
+  view.setUint16(32, blockAlign, true);
+  view.setUint16(34, bitsPerSample, true);
+  writeString(view, 36, 'data');
+  view.setUint32(40, int16Data.byteLength, true);
 
-  const startCall = async () => {
-    if (!vapi) {
-      toast.error('Voice service not available');
+  const wavArray = new Uint8Array(wavHeader.byteLength + int16Data.byteLength);
+  wavArray.set(new Uint8Array(wavHeader), 0);
+  wavArray.set(new Uint8Array(int16Data.buffer), wavHeader.byteLength);
+  
+  return wavArray;
+};
+
+class AudioQueue {
+  private queue: Uint8Array[] = [];
+  private isPlaying = false;
+  private audioContext: AudioContext;
+
+  constructor(audioContext: AudioContext) {
+    this.audioContext = audioContext;
+  }
+
+  async addToQueue(audioData: Uint8Array) {
+    this.queue.push(audioData);
+    if (!this.isPlaying) {
+      await this.playNext();
+    }
+  }
+
+  private async playNext() {
+    if (this.queue.length === 0) {
+      this.isPlaying = false;
       return;
     }
 
+    this.isPlaying = true;
+    const audioData = this.queue.shift()!;
+
     try {
-      await vapi.start({
-        name: 'AuraQ Wellness Coach',
-        model: {
-          provider: 'openai',
-          model: 'gpt-4o-mini',
-          messages: [{
-            role: 'system',
-            content: `You are AuraQ's AI Wellness Coach - compassionate, knowledgeable about fitness and mental health.
+      const wavData = createWavFromPCM(audioData);
+      const arrayBuffer = wavData.buffer.slice(0);
+      const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer as ArrayBuffer);
+      
+      const source = this.audioContext.createBufferSource();
+      source.buffer = audioBuffer;
+      source.connect(this.audioContext.destination);
+      
+      source.onended = () => this.playNext();
+      source.start(0);
+    } catch (error) {
+      console.error('Error playing audio:', error);
+      this.playNext();
+    }
+  }
 
-YOUR ROLE:
-- Help people new to fitness or struggling with motivation
-- Provide guidance for PHYSICAL fitness AND MENTAL wellness
-- Listen empathetically to concerns about lethargy, depression, anxiety
-- Suggest appropriate fitness goals based on their situation
-- Encourage signup to track progress
+  clear() {
+    this.queue = [];
+    this.isPlaying = false;
+  }
+}
 
-APPROACH:
-1. Warm greeting, ask how you can help
-2. Listen to their concern (fitness OR mental wellness)
-3. Ask clarifying questions
-4. Provide practical, actionable advice
-5. Suggest a specific goal they could start with
-6. Encourage signup to AuraQ
+const VoiceConsultation = ({ isOpen, onClose }: VoiceConsultationProps) => {
+  const [isCallActive, setIsCallActive] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [transcript, setTranscript] = useState<TranscriptMessage[]>([]);
+  const [isConnecting, setIsConnecting] = useState(false);
+  
+  const wsRef = useRef<WebSocket | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const audioQueueRef = useRef<AudioQueue | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const processorRef = useRef<ScriptProcessorNode | null>(null);
+  const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
 
-PHYSICAL FITNESS TOPICS:
-- Beginner workout guidance
-- Goal setting (running, strength, weight loss)
-- Exercise recommendations
-- Building sustainable habits
+  useEffect(() => {
+    return () => {
+      cleanup();
+    };
+  }, []);
 
-MENTAL WELLNESS TOPICS:
-- Lack of motivation and energy
-- Feeling lethargic or tired
-- Depression and workout anxiety
-- Stress management through fitness
-- Building confidence
-- Overcoming mental barriers to exercise
+  const cleanup = () => {
+    if (processorRef.current) {
+      processorRef.current.disconnect();
+      processorRef.current = null;
+    }
+    if (sourceRef.current) {
+      sourceRef.current.disconnect();
+      sourceRef.current = null;
+    }
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach(track => track.stop());
+      mediaStreamRef.current = null;
+    }
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
+    }
+    if (audioQueueRef.current) {
+      audioQueueRef.current.clear();
+    }
+    if (audioContextRef.current) {
+      audioContextRef.current.close();
+      audioContextRef.current = null;
+    }
+  };
 
-GUIDELINES:
-- Be warm, empathetic, non-judgmental
-- Keep responses under 45 seconds
-- For serious mental health issues, acknowledge but suggest professional help
-- Always end with encouragement
-- Be specific with recommendations (e.g., "Start with 2km walk 3x/week")
-- Suggest signing up to track their journey
-
-RESPONSE STYLE:
-- Compassionate and understanding
-- Evidence-based advice
-- Action-oriented
-- Motivating but realistic
-- Professional yet friendly
-
-Remember: Guide them toward their first fitness goal and encourage AuraQ signup!`
-          }],
-          temperature: 0.8
-        },
-        voice: {
-          provider: '11labs',
-          voiceId: 'rachel'
-        },
-        firstMessage: "Hey there! I'm your AuraQ wellness coach. Whether you're looking to start a fitness journey or need support with motivation and mental wellness, I'm here to help. What's on your mind today?"
+  const startCall = async () => {
+    setIsConnecting(true);
+    
+    try {
+      // Request microphone permission
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          sampleRate: 24000,
+          channelCount: 1,
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        }
       });
+      
+      mediaStreamRef.current = stream;
+      
+      // Initialize audio context and queue
+      audioContextRef.current = new AudioContext({ sampleRate: 24000 });
+      audioQueueRef.current = new AudioQueue(audioContextRef.current);
+      
+      // Connect to WebSocket
+      const wsUrl = `wss://dowwgiiqwfxfvnnwurxq.supabase.co/functions/v1/voice-consultation`;
+      wsRef.current = new WebSocket(wsUrl);
+      
+      wsRef.current.onopen = () => {
+        console.log('Connected to voice service');
+        setIsCallActive(true);
+        setIsConnecting(false);
+        
+        // Set up audio recording
+        if (audioContextRef.current && mediaStreamRef.current) {
+          sourceRef.current = audioContextRef.current.createMediaStreamSource(mediaStreamRef.current);
+          processorRef.current = audioContextRef.current.createScriptProcessor(4096, 1, 1);
+          
+          processorRef.current.onaudioprocess = (e) => {
+            if (wsRef.current?.readyState === WebSocket.OPEN) {
+              const inputData = e.inputBuffer.getChannelData(0);
+              const base64Audio = encodeAudioForAPI(new Float32Array(inputData));
+              wsRef.current.send(JSON.stringify({
+                type: 'input_audio_buffer.append',
+                audio: base64Audio
+              }));
+            }
+          };
+          
+          sourceRef.current.connect(processorRef.current);
+          processorRef.current.connect(audioContextRef.current.destination);
+        }
+      };
+      
+      wsRef.current.onmessage = async (event) => {
+        const data = JSON.parse(event.data);
+        console.log('Received:', data.type);
+        
+        if (data.type === 'response.audio.delta') {
+          setIsSpeaking(true);
+          const binaryString = atob(data.delta);
+          const bytes = new Uint8Array(binaryString.length);
+          for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+          }
+          await audioQueueRef.current?.addToQueue(bytes);
+        } else if (data.type === 'response.audio.done') {
+          setIsSpeaking(false);
+        } else if (data.type === 'conversation.item.input_audio_transcription.completed') {
+          setTranscript(prev => [...prev, {
+            role: 'user',
+            text: data.transcript,
+            timestamp: new Date()
+          }]);
+        } else if (data.type === 'response.audio_transcript.delta') {
+          setTranscript(prev => {
+            const last = prev[prev.length - 1];
+            if (last?.role === 'assistant') {
+              return prev.map((msg, i) => 
+                i === prev.length - 1 
+                  ? { ...msg, text: msg.text + data.delta }
+                  : msg
+              );
+            }
+            return [...prev, {
+              role: 'assistant',
+              text: data.delta,
+              timestamp: new Date()
+            }];
+          });
+        } else if (data.type === 'error') {
+          console.error('Error:', data.error);
+          toast.error(data.error);
+        }
+      };
+      
+      wsRef.current.onerror = (error) => {
+        console.error('WebSocket error:', error);
+        toast.error('Connection error. Please try again.');
+        setIsConnecting(false);
+        cleanup();
+      };
+      
+      wsRef.current.onclose = () => {
+        console.log('Connection closed');
+        setIsCallActive(false);
+        setIsSpeaking(false);
+        setIsConnecting(false);
+      };
+      
     } catch (error) {
       console.error('Error starting call:', error);
-      toast.error('Could not start call. Please try again.');
+      toast.error('Could not access microphone. Please grant permission.');
+      setIsConnecting(false);
+      cleanup();
     }
   };
 
   const endCall = () => {
-    if (vapi) vapi.stop();
+    cleanup();
+    setIsCallActive(false);
+    setIsSpeaking(false);
+    setTranscript([]);
   };
 
   if (!isOpen) return null;
@@ -153,7 +316,7 @@ Remember: Guide them toward their first fitness goal and encourage AuraQ signup!
 
         {/* Content */}
         <div className="p-8">
-          {!isCallActive ? (
+          {!isCallActive && !isConnecting ? (
             // Start Screen
             <div className="text-center">
               <div className="w-32 h-32 mx-auto rounded-full bg-auro-gold/20 flex items-center justify-center mb-6">
@@ -189,6 +352,17 @@ Remember: Guide them toward their first fitness goal and encourage AuraQ signup!
               <p className="text-soft-graphite text-xs">
                 Your microphone will be accessed for this call
               </p>
+            </div>
+          ) : isConnecting ? (
+            <div className="text-center">
+              <div className="w-32 h-32 mx-auto rounded-full bg-auro-gold/20 flex items-center justify-center mb-6 animate-pulse">
+                <svg className="w-16 h-16 text-auro-gold" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+                  <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+                </svg>
+              </div>
+              <h3 className="text-white text-xl font-semibold mb-2">Connecting...</h3>
+              <p className="text-soft-graphite text-sm">Setting up your wellness consultation</p>
             </div>
           ) : (
             // Active Call Screen
