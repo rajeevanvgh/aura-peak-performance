@@ -1,45 +1,33 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 
-const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
 
-Deno.serve(async (req) => {
-  if (req.headers.get("upgrade") !== "websocket") {
-    return new Response("Expected websocket", { status: 400 });
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
   }
 
-  const { socket, response } = Deno.upgradeWebSocket(req);
-  
-  let openaiWs: WebSocket | null = null;
+  try {
+    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+    if (!OPENAI_API_KEY) {
+      throw new Error('OPENAI_API_KEY is not set');
+    }
 
-  socket.onopen = () => {
-    console.log("Client connected");
-    
-    // Connect to OpenAI Realtime API
-    openaiWs = new WebSocket(
-      "wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-10-01",
-      {
-        headers: {
-          "Authorization": `Bearer ${OPENAI_API_KEY}`,
-          "OpenAI-Beta": "realtime=v1"
-        }
-      }
-    );
-
-    openaiWs.onopen = () => {
-      console.log("Connected to OpenAI");
-    };
-
-    openaiWs.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      console.log("OpenAI message:", data.type);
-      
-      // Send session.update after session.created
-      if (data.type === 'session.created') {
-        const sessionConfig = {
-          type: 'session.update',
-          session: {
-            modalities: ['text', 'audio'],
-            instructions: `You are AuraQ's AI Wellness Coach - compassionate, knowledgeable about fitness and mental health.
+    // Create ephemeral token for WebRTC connection
+    const response = await fetch("https://api.openai.com/v1/realtime/sessions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${OPENAI_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-realtime-preview-2024-12-17",
+        voice: "alloy",
+        instructions: `You are AuraQ's AI Wellness Coach - compassionate, knowledgeable about fitness and mental health.
 
 YOUR ROLE:
 - Help people new to fitness or struggling with motivation
@@ -85,60 +73,28 @@ RESPONSE STYLE:
 - Motivating but realistic
 - Professional yet friendly
 
-Remember: Guide them toward their first fitness goal and encourage AuraQ signup!`,
-            voice: 'alloy',
-            input_audio_format: 'pcm16',
-            output_audio_format: 'pcm16',
-            input_audio_transcription: {
-              model: 'whisper-1'
-            },
-            turn_detection: {
-              type: 'server_vad',
-              threshold: 0.5,
-              prefix_padding_ms: 300,
-              silence_duration_ms: 1000
-            },
-            temperature: 0.8
-          }
-        };
-        openaiWs?.send(JSON.stringify(sessionConfig));
-        console.log("Session configured");
-      }
-      
-      // Forward all OpenAI messages to client
-      socket.send(event.data);
-    };
+Remember: Guide them toward their first fitness goal and encourage AuraQ signup!`
+      }),
+    });
 
-    openaiWs.onerror = (error) => {
-      console.error("OpenAI WebSocket error:", error);
-      socket.send(JSON.stringify({ 
-        type: 'error', 
-        error: 'OpenAI connection error' 
-      }));
-    };
-
-    openaiWs.onclose = () => {
-      console.log("OpenAI disconnected");
-      socket.close();
-    };
-  };
-
-  socket.onmessage = (event) => {
-    // Forward client messages to OpenAI
-    if (openaiWs && openaiWs.readyState === WebSocket.OPEN) {
-      openaiWs.send(event.data);
+    if (!response.ok) {
+      const error = await response.text();
+      console.error("OpenAI error:", error);
+      throw new Error(`Failed to create session: ${error}`);
     }
-  };
 
-  socket.onclose = () => {
-    console.log("Client disconnected");
-    openaiWs?.close();
-  };
+    const data = await response.json();
+    console.log("Session created successfully");
 
-  socket.onerror = (error) => {
-    console.error("Client WebSocket error:", error);
-    openaiWs?.close();
-  };
-
-  return response;
+    return new Response(JSON.stringify(data), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  } catch (error) {
+    console.error("Error:", error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    return new Response(JSON.stringify({ error: errorMessage }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
 });
