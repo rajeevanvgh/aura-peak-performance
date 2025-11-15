@@ -20,7 +20,7 @@ const VoiceConsultation = ({ isOpen, onClose }: VoiceConsultationProps) => {
   const [transcript, setTranscript] = useState<TranscriptMessage[]>([]);
 
   useEffect(() => {
-    const vapiInstance = new Vapi(import.meta.env.VITE_VAPI_PUBLIC_KEY);
+    const vapiInstance = new Vapi('0e533ffc-4b5d-4557-825c-8718a91ea93a');
     setVapi(vapiInstance);
 
     vapiInstance.on('call-start', () => setIsCallActive(true));
