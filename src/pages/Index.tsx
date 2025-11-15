@@ -19,6 +19,7 @@ import { notifyGoalCreation } from '@/utils/notifyGoalCreation';
 import { notifyGoalCompletion } from '@/utils/notifyGoalCompletion';
 import { toast as sonnerToast } from 'sonner';
 import confetti from 'canvas-confetti';
+import VoiceConsultation from '@/components/VoiceConsultation';
 
 // Types
 interface User {
@@ -73,6 +74,7 @@ export default function Index() {
   const [activities, setActivities] = useState<ActivityLog[]>([]);
   const [showModal, setShowModal] = useState<string | null>(null);
   const [selectedGoal, setSelectedGoal] = useState<Goal | null>(null);
+  const [showConsultation, setShowConsultation] = useState(false);
   const { toast } = useToast();
 
   // Set up auth state listener and load data
@@ -213,6 +215,25 @@ export default function Index() {
             <Zap size={24} />
             Start Your Journey
           </Button>
+
+          <div className="mt-8 p-6 bg-deep-charcoal/50 backdrop-blur-sm rounded-xl border border-auro-gold/20 max-w-2xl mx-auto">
+            <div className="flex items-center justify-between gap-4 flex-wrap">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-full bg-auro-gold/20 flex items-center justify-center">
+                  🧘
+                </div>
+                <div className="text-left">
+                  <h3 className="text-white font-semibold text-lg">Not sure where to start?</h3>
+                  <p className="text-soft-graphite text-sm">Get free AI fitness & wellness guidance</p>
+                </div>
+              </div>
+              <Button 
+                onClick={() => setShowConsultation(true)}
+                className="bg-auro-gold hover:bg-auro-gold/90 text-deep-charcoal font-bold py-3 px-6 rounded-lg transition-all hover:scale-105">
+                🎤 Talk to Coach
+              </Button>
+            </div>
+          </div>
         </div>
         
         <div className="max-w-6xl mx-auto mt-20 grid md:grid-cols-3 gap-6">
@@ -1512,7 +1533,15 @@ export default function Index() {
   if (!user) {
     if (currentView === 'login') return <AuthForm type="login" />;
     if (currentView === 'signup') return <AuthForm type="signup" />;
-    return <LandingPage />;
+    return (
+      <>
+        <LandingPage />
+        <VoiceConsultation 
+          isOpen={showConsultation} 
+          onClose={() => setShowConsultation(false)} 
+        />
+      </>
+    );
   }
 
   return (
